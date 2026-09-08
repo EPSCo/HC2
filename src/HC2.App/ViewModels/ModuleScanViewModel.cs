@@ -22,7 +22,10 @@ public sealed class ModuleScanViewModel : ViewModelBase
     private string? _portName;
     private int     _firstAddress = 0;
     private int     _lastAddress  = 255;
-    private int     _baudRate     = 9600;
+    // 4800, not the modules' 9600 factory default: a bus that has been commissioned runs at whatever it was
+    // configured to, and 4800 is the rate this equipment is deployed at — HardwareController hard-coded the
+    // same assumption. Scanning at the factory rate would miss every module on a working bus.
+    private int     _baudRate     = BaudRateCodes.DefaultBitsPerSecond;
     private bool    _allBaudRates;
     private bool    _tryChecksum;
     private int     _probeTimeoutMs = 200;

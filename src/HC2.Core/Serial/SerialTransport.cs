@@ -55,7 +55,7 @@ public sealed class SerialTransport : ISerialTransport
             }
             catch (Exception e) when (e is UnauthorizedAccessException or IOException or ArgumentException or InvalidOperationException)
             {
-                LastError = $"Could not open {Settings.PortName}: {e.Message}";
+                LastError = $"Could not open {Settings.PortName}: {Explain(e)}";
                 _port?.Dispose();
                 _port = null;
 
@@ -154,6 +154,36 @@ public sealed class SerialTransport : ISerialTransport
                 return false;
             }
         }
+    }
+
+    /// <summary>
+    /// Turns a port failure into something diagnosable. .NET's own messages for a serial port are famously
+    /// uninformative — "A device attached to the system is not functioning" says nothing about which of the
+    /// several Win32 calls behind <see cref="SerialPort.Open"/> actually refused — so the underlying error
+    /// number is surfaced along with what it usually means here. HardwareController logged the equivalent
+    /// Win32 code for the same reason.
+    /// </summary>
+    private static string Explain(Exception e)
+    {
+        // A Win32 error surfaces as an HRESULT in the 0x8007xxxx facility; the low word is the error number.
+        var win32 = (e.HResult & unchecked((int) 0xFFFF0000)) == unchecked((int) 0x80070000)
+            ? e.HResult & 0xFFFF
+            : 0;
+
+        return win32 switch
+        {
+            2 => $"{e.Message} (Win32 2 — the port no longer exists; the adapter was probably unplugged.)",
+
+            5 => $"{e.Message} (Win32 5, access denied — another program still holds this port.)",
+
+            // Seen on a CH340 adapter whose port opens at the Win32 level and reports its settings correctly,
+            // but rejects SetCommState even when handed back the values it just reported. Opening a port
+            // always configures it, so the port becomes unusable to any .NET program while this persists.
+            31 => $"{e.Message} (Win32 31 — the driver refused to configure the line. The adapter is hung or " +
+                  "its driver rejects the configuration: replug it, or roll back the driver to an older version.)",
+
+            _ => win32 != 0 ? $"{e.Message} (Win32 {win32}.)" : e.Message
+        };
     }
 
     /// <summary>Pushes <paramref name="settings"/> onto the live port. Caller holds the lock.</summary>
