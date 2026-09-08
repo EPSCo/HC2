@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace HC2.Core;
+namespace HC2.Core.Serial;
 
 /// <summary>Enumerates the serial ports the machine currently exposes.</summary>
 public interface ISerialPortScanner

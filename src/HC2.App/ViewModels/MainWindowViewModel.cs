@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
 using HC2.App.Mvvm;
-using HC2.Core;
+using HC2.Core.Serial;
 
 namespace HC2.App.ViewModels;
 

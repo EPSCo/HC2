@@ -1,4 +1,4 @@
-namespace HC2.Core;
+namespace HC2.Core.Serial;
 
 /// <summary>Whether the port can currently be opened.</summary>
 public enum PortAvailability

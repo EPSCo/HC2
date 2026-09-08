@@ -1,6 +1,6 @@
 using System.Windows;
 using HC2.App.ViewModels;
-using HC2.Core;
+using HC2.Core.Serial;
 
 namespace HC2.App;
 

@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace HC2.Core;
+namespace HC2.Core.Serial;
 
 /// <summary>
 /// Lists COM ports by combining two sources: <see cref="SerialPort.GetPortNames"/> (authoritative for what can
