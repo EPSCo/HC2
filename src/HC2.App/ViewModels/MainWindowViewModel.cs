@@ -28,10 +28,17 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     public ICommand RefreshCommand { get; }
 
+    /// <summary>Module discovery for whichever port is selected.</summary>
+    public ModuleScanViewModel Scan { get; } = new();
+
     public SerialPortInfo? SelectedPort
     {
         get => _selectedPort;
-        set => SetProperty(ref _selectedPort, value);
+        set
+        {
+            if (SetProperty(ref _selectedPort, value))
+                Scan.PortName = value?.PortName;
+        }
     }
 
     public bool IsScanning

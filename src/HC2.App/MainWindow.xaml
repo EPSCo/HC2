@@ -4,8 +4,8 @@
         xmlns:conv="clr-namespace:HC2.App.Converters"
         xmlns:core="clr-namespace:HC2.Core.Serial;assembly=HC2.Core"
         Title="HC2 — COM Port Explorer"
-        Height="560" Width="960"
-        MinHeight="380" MinWidth="720"
+        Height="760" Width="1040"
+        MinHeight="520" MinWidth="820"
         Background="{StaticResource SurfaceAlt}"
         WindowStartupLocation="CenterScreen">
 
@@ -13,17 +13,40 @@
         <conv:NullToVisibilityConverter x:Key="NullToVisibility" />
         <conv:ZeroToVisibilityConverter x:Key="ZeroToVisibility" />
         <conv:EmptyTextConverter x:Key="EmptyText" />
+        <conv:InverseBooleanConverter x:Key="Not" />
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
 
         <Style x:Key="DetailValue" TargetType="TextBlock">
             <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="Margin" Value="0,0,0,10" />
+        </Style>
+
+        <Style x:Key="PanelTitle" TargetType="TextBlock">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+        </Style>
+
+        <Style x:Key="SmallInput" TargetType="TextBox">
+            <Setter Property="Width" Value="52" />
+            <Setter Property="Padding" Value="4,3" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
     </Window.Resources>
 
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" />
+            <RowDefinition Height="*" MinHeight="120" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="320" MinHeight="150" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
@@ -31,7 +54,7 @@
             <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
 
-        <!-- Toolbar -->
+        <!-- Port toolbar -->
         <DockPanel Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,0,12">
             <Button DockPanel.Dock="Right"
                     Content="Refresh"
@@ -124,7 +147,7 @@
             </Grid>
         </Border>
 
-        <!-- Detail pane -->
+        <!-- Port detail pane -->
         <Border Grid.Row="1" Grid.Column="1"
                 Width="300"
                 Margin="12,0,0,0"
@@ -169,8 +192,126 @@
             </ScrollViewer>
         </Border>
 
+        <GridSplitter Grid.Row="2" Grid.ColumnSpan="2"
+                      Height="10"
+                      HorizontalAlignment="Stretch"
+                      Background="Transparent"
+                      ResizeBehavior="PreviousAndNext" />
+
+        <!-- Module scan -->
+        <Border Grid.Row="3" Grid.ColumnSpan="2"
+                Background="{StaticResource Surface}"
+                BorderBrush="{StaticResource Border}"
+                BorderThickness="1"
+                CornerRadius="6"
+                DataContext="{Binding Scan}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Scan toolbar -->
+                <Grid Grid.Row="0" Margin="16,14,16,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
+                               IsEnabled="{Binding IsScanning, Converter={StaticResource Not}}">
+                        <TextBlock Text="{Binding Headline}" Style="{StaticResource PanelTitle}" Margin="0,0,22,0" />
+
+                        <TextBlock Text="BAUD" Style="{StaticResource FieldLabel}" />
+                        <ComboBox ItemsSource="{Binding BaudRateOptions}"
+                                  SelectedItem="{Binding BaudRate}"
+                                  Width="86"
+                                  Margin="0,0,16,0"
+                                  VerticalContentAlignment="Center" />
+
+                        <TextBlock Text="ADDRESSES" Style="{StaticResource FieldLabel}" />
+                        <TextBox Text="{Binding FirstAddress, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource SmallInput}" />
+                        <TextBlock Text="to" Style="{StaticResource FieldLabel}" Margin="6,0" />
+                        <TextBox Text="{Binding LastAddress, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource SmallInput}"
+                                 Margin="0,0,16,0" />
+
+                        <TextBlock Text="TIMEOUT ms" Style="{StaticResource FieldLabel}" />
+                        <TextBox Text="{Binding ProbeTimeoutMs, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource SmallInput}"
+                                 Margin="0,0,16,0" />
+
+                        <CheckBox Content="All baud rates"
+                                  IsChecked="{Binding AllBaudRates}"
+                                  ToolTip="Sweeps every standard rate. Nine times longer."
+                                  Margin="0,0,16,0" />
+
+                        <CheckBox Content="Checksum bus"
+                                  IsChecked="{Binding TryChecksum}"
+                                  ToolTip="Also sweep with checksums enabled. HC2's checksum is not yet verified against hardware — treat a hit here as provisional." />
+                    </WrapPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="Cancel"
+                                Command="{Binding CancelCommand}"
+                                Background="{StaticResource Bad}"
+                                Margin="0,0,8,0"
+                                Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibility}}" />
+
+                        <Button Content="Scan" Command="{Binding ScanCommand}" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- Progress -->
+                <StackPanel Grid.Row="1" Margin="16,0,16,10">
+                    <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}" Margin="0,0,0,6" />
+
+                    <ProgressBar Height="4"
+                                 Minimum="0" Maximum="1"
+                                 Value="{Binding Progress, Mode=OneWay}"
+                                 Foreground="{StaticResource Accent}"
+                                 Background="{StaticResource SurfaceAlt}"
+                                 BorderThickness="0" />
+                </StackPanel>
+
+                <!-- Results -->
+                <Grid Grid.Row="2">
+                    <DataGrid ItemsSource="{Binding Results}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="{StaticResource Border}"
+                              BorderThickness="0"
+                              Background="Transparent"
+                              RowBackground="Transparent"
+                              AlternatingRowBackground="Transparent"
+                              SelectionMode="Single"
+                              CanUserResizeRows="False"
+                              RowHeight="28">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Addr (hex)" Binding="{Binding Address}" Width="90" FontWeight="SemiBold" />
+                            <DataGridTextColumn Header="Addr (dec)" Binding="{Binding AddressDecimal}" Width="90" />
+                            <DataGridTextColumn Header="Module" Binding="{Binding Model}" Width="*" />
+                            <DataGridTextColumn Header="Channels" Binding="{Binding Channels}" Width="90" />
+                            <DataGridTextColumn Header="Baud rate" Binding="{Binding BaudRate}" Width="110" />
+                            <DataGridTextColumn Header="Checksum" Binding="{Binding Checksum}" Width="100" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <TextBlock Text="No scan results yet."
+                               Style="{StaticResource Caption}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Visibility="{Binding Results.Count, Converter={StaticResource ZeroToVisibility}}" />
+                </Grid>
+            </Grid>
+        </Border>
+
         <!-- Status bar -->
-        <DockPanel Grid.Row="2" Grid.ColumnSpan="2" Margin="2,10,2,0">
+        <DockPanel Grid.Row="4" Grid.ColumnSpan="2" Margin="2,10,2,0">
             <TextBlock DockPanel.Dock="Right"
                        Style="{StaticResource Caption}"
                        Text="{Binding Ports.Count, StringFormat={}{0} port(s)}" />
