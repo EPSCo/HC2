@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>10.0</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- .NET Framework ships System.IO.Ports in System.dll; System.Management needs an explicit reference. -->
+    <Reference Include="System.Management" />
+  </ItemGroup>
+
+</Project>
