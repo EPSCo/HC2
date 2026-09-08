@@ -156,16 +156,22 @@ public sealed class ModuleScanViewModel : ViewModelBase
             ReadTimeoutMs = options.ProbeTimeoutMs
         };
 
-        using var transport = new SerialTransport(settings);
+        var opened = SerialTransportOpener.Open(settings);
+
+        if (!opened.Opened)
+        {
+            Status     = opened.Error ?? $"Could not open {PortName}.";
+            IsScanning = false;
+            _cancellation.Dispose();
+            _cancellation = null;
+
+            return;
+        }
+
+        using var transport = opened.Transport!;
 
         try
         {
-            if (!transport.Open())
-            {
-                Status = transport.LastError ?? $"Could not open {PortName}.";
-                return;
-            }
-
             var found = await new ModuleFinder(transport).ScanAsync(options, progress, _cancellation.Token);
 
             // Results appear live as each probe reports, so the list is normally already complete here. The
@@ -180,12 +186,17 @@ public sealed class ModuleScanViewModel : ViewModelBase
             }
 
             Progress = 1;
-            Status = found.Count switch
+
+            var outcome = found.Count switch
             {
                 0 => $"No modules answered on {PortName} across {options.ProbeCount:N0} probes.",
                 1 => $"1 module found on {PortName}.",
                 _ => $"{found.Count} modules found on {PortName}."
             };
+
+            // A port that only opened through the fallback route still works, but the reason is worth keeping
+            // in front of the user — it explains why changing the baud rate may not take effect.
+            Status = opened.Note is null ? outcome : $"{outcome} {opened.Note}";
         }
         catch (OperationCanceledException)
         {

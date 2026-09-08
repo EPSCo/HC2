@@ -35,6 +35,33 @@ To drop `Advantech.Adam`, `HC2.Core` must implement:
 
 Items 1 and 3 are well-specified and mechanical. Item 2 is the one that needs hardware in front of you.
 
+### Update, 2026-09-08: item 1 was not free after all
+
+Measured against the bench CH340 adapter on COM5, the assumption that `System.IO.Ports` can simply stand in
+for the SDK turned out to be false:
+
+| Call | Result |
+| --- | --- |
+| `CreateFile` on `\\.\COM5` | succeeds |
+| `GetCommState` | succeeds — reports 4800 8/N/1, the bus's real settings |
+| `SetCommState`, with the DCB just read | **fails, Win32 31 (`ERROR_GEN_FAILURE`)** |
+| `SerialPort.Open()` | **fails** — it always calls `SetCommState` and treats failure as fatal |
+| `AdamCom.OpenComPort()` | **succeeds** — its own `SetComPortState` returns false and the SDK carries on |
+
+That single difference — tolerating a configuration failure instead of aborting on it — is the only thing the
+Advantech DLLs were providing here. `HC2.Core.Serial.Win32SerialTransport` now does the same: it configures
+the line when the driver allows it, and when the driver refuses it checks whether the port already holds the
+settings that were wanted, proceeding if so and reporting the refusal if not.
+`SerialTransportOpener` tries `SerialPort` first and falls back to it.
+
+Validated end to end on the bench bus with no Advantech reference loaded: a 16-address sweep in 4.1 s found
+address **01** (`!014017P`, ADAM-4017P) and address **02** (`!024117`, ADAM-4117), and channel reads returned
+live engineering-units data from both.
+
+One consequence to keep in mind: while a driver refuses `SetCommState`, the line rate cannot be changed at
+all. Multi-rate scanning and the INIT-mode switch to 9600 are impossible on such an adapter until it is
+replugged or its driver rolled back.
+
 ## Hardware facts worth more than the code around them
 
 These are the comments that were paid for with a module on a bench. Each records something the manuals either
