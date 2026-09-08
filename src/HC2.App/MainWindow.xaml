@@ -4,8 +4,8 @@
         xmlns:conv="clr-namespace:HC2.App.Converters"
         xmlns:core="clr-namespace:HC2.Core.Serial;assembly=HC2.Core"
         Title="HC2 — COM Port Explorer"
-        Height="760" Width="1040"
-        MinHeight="520" MinWidth="820"
+        Height="700" Width="960"
+        MinHeight="500" MinWidth="760"
         Background="{StaticResource SurfaceAlt}"
         WindowStartupLocation="CenterScreen">
 
@@ -110,9 +110,13 @@
                         <DataGridTemplateColumn Header="Available" Width="100">
                             <DataGridTemplateColumn.CellTemplate>
                                 <DataTemplate>
-                                    <TextBlock Text="{Binding Availability}" FontWeight="SemiBold">
+                                    <TextBlock FontWeight="SemiBold">
+                                        <!-- Text is set through the style, not locally: a locally-set
+                                             property beats a style trigger, so a local Text binding would
+                                             make the triggers below unable to relabel anything. -->
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="{Binding Availability}" />
                                                 <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
                                                 <Setter Property="VerticalAlignment" Value="Center" />
                                                 <Style.Triggers>
