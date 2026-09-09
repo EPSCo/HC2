@@ -25,9 +25,10 @@ namespace HC2.App.ViewModels;
 /// </remarks>
 public sealed class LiveDataViewModel : ViewModelBase
 {
-    private readonly ModuleScanViewModel _scan;
-    private readonly AsyncRelayCommand   _start;
-    private readonly RelayCommand        _stop;
+    private readonly ModuleScanViewModel   _scan;
+    private readonly PortSettingsViewModel _settings;
+    private readonly AsyncRelayCommand     _start;
+    private readonly RelayCommand          _stop;
 
     private CancellationTokenSource? _cancellation;
 
@@ -37,14 +38,16 @@ public sealed class LiveDataViewModel : ViewModelBase
     private int     _failures;
     private string  _status = "Scan for modules, then start.";
 
-    public LiveDataViewModel(ModuleScanViewModel scan)
+    public LiveDataViewModel(ModuleScanViewModel scan, PortSettingsViewModel settings)
     {
-        _scan  = scan;
-        _start = new AsyncRelayCommand(RunAsync, CanStart);
-        _stop  = new RelayCommand(Stop, () => IsRunning);
+        _scan     = scan;
+        _settings = settings;
+        _start    = new AsyncRelayCommand(RunAsync, CanStart);
+        _stop     = new RelayCommand(Stop, () => IsRunning);
 
         // Start becomes possible the moment a scan produces something to read.
         _scan.Results.CollectionChanged += OnScanResultsChanged;
+        _settings.ProtocolChanged       += (_, _) => _start.RaiseCanExecuteChanged();
     }
 
     public ObservableCollection<ChannelReadingRow> Channels { get; } = new();
@@ -88,7 +91,8 @@ public sealed class LiveDataViewModel : ViewModelBase
         private set => SetProperty(ref _status, value);
     }
 
-    private bool CanStart() => !IsRunning && _scan.Results.Any(row => row.IsRecognized);
+    private bool CanStart() =>
+        !IsRunning && _settings.IsSupportedProtocol && _scan.Results.Any(row => row.IsRecognized);
 
     private async Task RunAsync()
     {
@@ -100,11 +104,17 @@ public sealed class LiveDataViewModel : ViewModelBase
             return;
         }
 
-        var portName = _scan.PortName;
+        var portName = _settings.PortName;
 
         if (string.IsNullOrEmpty(portName))
         {
             Status = "No port selected.";
+            return;
+        }
+
+        if (!_settings.IsSupportedProtocol)
+        {
+            Status = _settings.ProtocolWarning;
             return;
         }
 
@@ -135,7 +145,10 @@ public sealed class LiveDataViewModel : ViewModelBase
 
         try
         {
-            var client  = new DconClient(transport);
+            // Baud rate and checksum come from what the modules actually answered with during the scan, not
+            // from the settings panel: if a multi-rate sweep found them somewhere other than the configured
+            // rate, that discovered rate is the one that demonstrably works.
+            var client  = new DconClient(transport, discovered[0].Checksum);
             var modules = discovered.Select(d => ModuleFactory.Create(client, d))
                                     .Where(module => module != null)
                                     .Select(module => module!)

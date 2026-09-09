@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -18,19 +19,28 @@ public sealed class MainWindowViewModel : ViewModelBase
     private bool            _autoRefresh = true;
     private string          _status      = "Ready.";
 
+    /// <summary>Guards the two-way link between the port list selection and the port settings panel.</summary>
+    private bool _syncingSelection;
+
     public MainWindowViewModel(ISerialPortScanner scanner)
     {
         _scanner       = scanner;
         RefreshCommand = new AsyncRelayCommand(RefreshAsync);
-        Live           = new LiveDataViewModel(Scan);
+        Scan           = new ModuleScanViewModel(PortSettings);
+        Live           = new LiveDataViewModel(Scan, PortSettings);
+
+        PortSettings.PropertyChanged += OnPortSettingsChanged;
     }
 
     public ObservableCollection<SerialPortInfo> Ports { get; } = new();
 
     public ICommand RefreshCommand { get; }
 
-    /// <summary>Module discovery for whichever port is selected.</summary>
-    public ModuleScanViewModel Scan { get; } = new();
+    /// <summary>Port, baud rate, checksum and protocol, shared by everything that talks to the bus.</summary>
+    public PortSettingsViewModel PortSettings { get; } = new();
+
+    /// <summary>Module discovery on the configured port.</summary>
+    public ModuleScanViewModel Scan { get; }
 
     /// <summary>Continuous channel reads of whatever the last scan found.</summary>
     public LiveDataViewModel Live { get; }
@@ -40,8 +50,12 @@ public sealed class MainWindowViewModel : ViewModelBase
         get => _selectedPort;
         set
         {
-            if (SetProperty(ref _selectedPort, value))
-                Scan.PortName = value?.PortName;
+            if (!SetProperty(ref _selectedPort, value) || _syncingSelection)
+                return;
+
+            _syncingSelection     = true;
+            PortSettings.PortName = value?.PortName;
+            _syncingSelection     = false;
         }
     }
 
@@ -86,7 +100,12 @@ public sealed class MainWindowViewModel : ViewModelBase
             foreach (var port in found)
                 Ports.Add(port);
 
+            // The settings panel offers the same ports as the list, and keeps its selection across a refresh
+            // when that port is still there.
+            PortSettings.SetAvailablePorts(found.Select(port => port.PortName));
+
             SelectedPort = Ports.FirstOrDefault(p => p.PortName.Equals(selected, StringComparison.OrdinalIgnoreCase))
+                        ?? Ports.FirstOrDefault(p => p.PortName == PortSettings.PortName)
                         ?? Ports.FirstOrDefault();
 
             Status = found.Count switch
@@ -111,5 +130,16 @@ public sealed class MainWindowViewModel : ViewModelBase
     {
         if (AutoRefresh && !IsScanning)
             _ = RefreshAsync();
+    }
+
+    /// <summary>Keeps the port list selection in step when the port is changed from the settings panel.</summary>
+    private void OnPortSettingsChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(PortSettingsViewModel.PortName) || _syncingSelection)
+            return;
+
+        _syncingSelection = true;
+        SelectedPort      = Ports.FirstOrDefault(port => port.PortName == PortSettings.PortName);
+        _syncingSelection = false;
     }
 }

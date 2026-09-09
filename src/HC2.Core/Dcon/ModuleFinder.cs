@@ -44,9 +44,13 @@ public sealed record ModuleScanOptions
     /// </summary>
     public IReadOnlyList<int> BaudRates { get; init; } = Array.Empty<int>();
 
+    /// <summary>Whether the bus runs with checksums. Ignored when <see cref="TryChecksumBus"/> sweeps both.</summary>
+    public bool Checksum { get; init; }
+
     /// <summary>
-    /// Also sweep with checksums enabled. Off by default for two reasons: it doubles the scan, and HC2's
-    /// checksum implementation is not yet hardware-verified (see <see cref="DconChecksum"/>).
+    /// Sweep with checksums both off and on instead of using <see cref="Checksum"/>, for a bus whose setting is
+    /// unknown. Doubles the scan, and HC2's checksum implementation is not yet hardware-verified (see
+    /// <see cref="DconChecksum"/>).
     /// </summary>
     public bool TryChecksumBus { get; init; }
 
@@ -114,7 +118,7 @@ public sealed class ModuleFinder
             ? options.BaudRates.Distinct().OrderBy(rate => rate).ToArray()
             : new[] { original.BaudRate };
 
-        var checksumModes = options.TryChecksumBus ? new[] { false, true } : new[] { false };
+        var checksumModes = options.TryChecksumBus ? new[] { false, true } : new[] { options.Checksum };
 
         var total     = options.ProbeCount;
         var completed = 0;

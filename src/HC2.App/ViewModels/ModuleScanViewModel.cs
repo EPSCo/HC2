@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,55 +11,40 @@ using HC2.Core.Serial;
 
 namespace HC2.App.ViewModels;
 
-/// <summary>Drives a <see cref="ModuleFinder"/> sweep over the port selected in the port list.</summary>
+/// <summary>Drives a <see cref="ModuleFinder"/> sweep over the configured port.</summary>
 public sealed class ModuleScanViewModel : ViewModelBase
 {
-    private readonly AsyncRelayCommand _scan;
-    private readonly RelayCommand      _cancel;
+    private readonly PortSettingsViewModel _settings;
+    private readonly AsyncRelayCommand     _scan;
+    private readonly RelayCommand          _cancel;
 
     private CancellationTokenSource? _cancellation;
 
-    private string? _portName;
-    private int     _firstAddress = 0;
-    private int     _lastAddress  = 255;
-    // 4800, not the modules' 9600 factory default: a bus that has been commissioned runs at whatever it was
-    // configured to, and 4800 is the rate this equipment is deployed at — HardwareController hard-coded the
-    // same assumption. Scanning at the factory rate would miss every module on a working bus.
-    private int     _baudRate     = BaudRateCodes.DefaultBitsPerSecond;
-    private bool    _allBaudRates;
-    private bool    _tryChecksum;
-    private int     _probeTimeoutMs = 200;
-    private bool    _isScanning;
-    private double  _progress;
-    private string  _status = "Select a port, then scan for modules.";
+    private int    _firstAddress = 0;
+    private int    _lastAddress  = 255;
+    private bool   _allBaudRates;
+    private int    _probeTimeoutMs = 200;
+    private bool   _isScanning;
+    private double _progress;
+    private string _status = "Select a port, then scan for modules.";
 
-    public ModuleScanViewModel()
+    public ModuleScanViewModel(PortSettingsViewModel settings)
     {
-        _scan   = new AsyncRelayCommand(ScanAsync, () => !string.IsNullOrEmpty(PortName));
-        _cancel = new RelayCommand(Cancel, () => IsScanning);
+        _settings = settings;
+        _scan     = new AsyncRelayCommand(ScanAsync, CanScan);
+        _cancel   = new RelayCommand(Cancel, () => IsScanning);
+
+        _settings.PropertyChanged += OnSettingsChanged;
+        _settings.ProtocolChanged += (_, _) => _scan.RaiseCanExecuteChanged();
     }
 
     public ObservableCollection<DiscoveredModuleRow> Results { get; } = new();
 
-    public IReadOnlyList<int> BaudRateOptions { get; } =
-        BaudRateCodes.All.Select(entry => entry.BitsPerSecond).ToArray();
-
     public ICommand ScanCommand   => _scan;
     public ICommand CancelCommand => _cancel;
 
-    /// <summary>Set by the shell whenever the port selection changes.</summary>
-    public string? PortName
-    {
-        get => _portName;
-        set
-        {
-            if (SetProperty(ref _portName, value))
-            {
-                _scan.RaiseCanExecuteChanged();
-                RaisePropertyChanged(nameof(Headline));
-            }
-        }
-    }
+    /// <summary>The port to sweep, owned by the port settings panel.</summary>
+    public string? PortName => _settings.PortName;
 
     public string Headline => string.IsNullOrEmpty(PortName) ? "Module scan" : $"Module scan — {PortName}";
 
@@ -75,27 +60,14 @@ public sealed class ModuleScanViewModel : ViewModelBase
         set => SetProperty(ref _lastAddress, Clamp(value));
     }
 
-    public int BaudRate
-    {
-        get => _baudRate;
-        set => SetProperty(ref _baudRate, value);
-    }
-
-    /// <summary>Sweep every standard rate instead of just <see cref="BaudRate"/>. Multiplies the scan by nine.</summary>
+    /// <summary>
+    /// Sweep every standard rate instead of the configured one, for a bus whose rate is unknown. Multiplies the
+    /// scan by nine.
+    /// </summary>
     public bool AllBaudRates
     {
         get => _allBaudRates;
         set => SetProperty(ref _allBaudRates, value);
-    }
-
-    /// <summary>
-    /// Also sweep with checksums enabled. HC2's checksum is not yet hardware-verified, so a hit here is a
-    /// result worth double-checking rather than trusting outright.
-    /// </summary>
-    public bool TryChecksum
-    {
-        get => _tryChecksum;
-        set => SetProperty(ref _tryChecksum, value);
     }
 
     public int ProbeTimeoutMs
@@ -127,17 +99,30 @@ public sealed class ModuleScanViewModel : ViewModelBase
         private set => SetProperty(ref _status, value);
     }
 
+    private bool CanScan() => _settings.IsPortSelected && _settings.IsSupportedProtocol;
+
     private async Task ScanAsync()
     {
-        if (string.IsNullOrEmpty(PortName))
+        var portName = PortName;
+
+        if (string.IsNullOrEmpty(portName))
+        {
+            Status = "No port selected.";
             return;
+        }
+
+        if (!_settings.IsSupportedProtocol)
+        {
+            Status = _settings.ProtocolWarning;
+            return;
+        }
 
         var options = new ModuleScanOptions
         {
             FirstAddress   = Math.Min(FirstAddress, LastAddress),
             LastAddress    = Math.Max(FirstAddress, LastAddress),
-            BaudRates      = AllBaudRates ? BaudRateOptions : new[] { BaudRate },
-            TryChecksumBus = TryChecksum,
+            BaudRates      = AllBaudRates ? _settings.BaudRateOptions : new[] { _settings.BaudRate },
+            Checksum       = _settings.Checksum,
             ProbeTimeoutMs = ProbeTimeoutMs
         };
 
@@ -151,8 +136,8 @@ public sealed class ModuleScanViewModel : ViewModelBase
 
         var settings = new SerialPortSettings
         {
-            PortName      = PortName!,
-            BaudRate      = BaudRate,
+            PortName      = portName!,
+            BaudRate      = _settings.BaudRate,
             ReadTimeoutMs = options.ProbeTimeoutMs
         };
 
@@ -160,7 +145,7 @@ public sealed class ModuleScanViewModel : ViewModelBase
 
         if (!opened.Opened)
         {
-            Status     = opened.Error ?? $"Could not open {PortName}.";
+            Status     = opened.Error ?? $"Could not open {portName}.";
             IsScanning = false;
             _cancellation.Dispose();
             _cancellation = null;
@@ -189,9 +174,9 @@ public sealed class ModuleScanViewModel : ViewModelBase
 
             var outcome = found.Count switch
             {
-                0 => $"No modules answered on {PortName} across {options.ProbeCount:N0} probes.",
-                1 => $"1 module found on {PortName}.",
-                _ => $"{found.Count} modules found on {PortName}."
+                0 => $"No modules answered on {portName} across {options.ProbeCount:N0} probes.",
+                1 => $"1 module found on {portName}.",
+                _ => $"{found.Count} modules found on {portName}."
             };
 
             // A port that only opened through the fallback route still works, but the reason is worth keeping
@@ -223,13 +208,23 @@ public sealed class ModuleScanViewModel : ViewModelBase
 
         Status = $"Probing {report.BaudRate:N0} bps, address {report.Address:X2} — " +
                  $"{report.Completed:N0} of {report.Total:N0}" +
-                 (report.Checksum ? ", checksum bus" : string.Empty);
+                 (report.Checksum ? ", checksum on" : string.Empty);
     }
 
     private void Cancel()
     {
         _cancellation?.Cancel();
         Status = "Cancelling…";
+    }
+
+    private void OnSettingsChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(PortSettingsViewModel.PortName))
+            return;
+
+        RaisePropertyChanged(nameof(PortName));
+        RaisePropertyChanged(nameof(Headline));
+        _scan.RaiseCanExecuteChanged();
     }
 
     private static int Clamp(int address) =>
