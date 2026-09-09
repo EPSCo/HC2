@@ -4,8 +4,8 @@
         xmlns:conv="clr-namespace:HC2.App.Converters"
         xmlns:core="clr-namespace:HC2.Core.Serial;assembly=HC2.Core"
         Title="HC2 — COM Port Explorer"
-        Height="700" Width="960"
-        MinHeight="500" MinWidth="760"
+        Height="720" Width="1160"
+        MinHeight="500" MinWidth="860"
         Background="{StaticResource SurfaceAlt}"
         WindowStartupLocation="CenterScreen">
 
@@ -202,15 +202,19 @@
                       Background="Transparent"
                       ResizeBehavior="PreviousAndNext" />
 
-        <!-- Module scan / live data -->
-        <Border Grid.Row="3" Grid.ColumnSpan="2"
+        <!-- Module scan and live data, side by side -->
+        <Grid Grid.Row="3" Grid.ColumnSpan="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="380" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" MinWidth="330" />
+            </Grid.ColumnDefinitions>
+
+        <Border Grid.Column="0"
                 Background="{StaticResource Surface}"
                 BorderBrush="{StaticResource Border}"
                 BorderThickness="1"
                 CornerRadius="6">
-        <TabControl Background="Transparent" BorderThickness="0" Margin="8,6,8,8">
-
-        <TabItem Header="Module scan">
             <Grid DataContext="{Binding Scan}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -227,32 +231,37 @@
 
                     <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
                                IsEnabled="{Binding IsScanning, Converter={StaticResource Not}}">
-                        <TextBlock Text="{Binding Headline}" Style="{StaticResource PanelTitle}" Margin="0,0,22,0" />
+                        <!-- Each label travels with its own control, so a wrap never strands a label on the
+                             line above the field it names. -->
+                        <TextBlock Text="{Binding Headline}" Style="{StaticResource PanelTitle}" Margin="0,0,18,4" />
 
-                        <TextBlock Text="BAUD" Style="{StaticResource FieldLabel}" />
-                        <ComboBox ItemsSource="{Binding BaudRateOptions}"
-                                  SelectedItem="{Binding BaudRate}"
-                                  Width="86"
-                                  Margin="0,0,16,0"
-                                  VerticalContentAlignment="Center" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,4">
+                            <TextBlock Text="BAUD" Style="{StaticResource FieldLabel}" />
+                            <ComboBox ItemsSource="{Binding BaudRateOptions}"
+                                      SelectedItem="{Binding BaudRate}"
+                                      Width="82"
+                                      VerticalContentAlignment="Center" />
+                        </StackPanel>
 
-                        <TextBlock Text="ADDRESSES" Style="{StaticResource FieldLabel}" />
-                        <TextBox Text="{Binding FirstAddress, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource SmallInput}" />
-                        <TextBlock Text="to" Style="{StaticResource FieldLabel}" Margin="6,0" />
-                        <TextBox Text="{Binding LastAddress, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource SmallInput}"
-                                 Margin="0,0,16,0" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,4">
+                            <TextBlock Text="ADDRESSES" Style="{StaticResource FieldLabel}" />
+                            <TextBox Text="{Binding FirstAddress, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource SmallInput}" />
+                            <TextBlock Text="to" Style="{StaticResource FieldLabel}" Margin="6,0" />
+                            <TextBox Text="{Binding LastAddress, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource SmallInput}" />
+                        </StackPanel>
 
-                        <TextBlock Text="TIMEOUT ms" Style="{StaticResource FieldLabel}" />
-                        <TextBox Text="{Binding ProbeTimeoutMs, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource SmallInput}"
-                                 Margin="0,0,16,0" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,16,4">
+                            <TextBlock Text="TIMEOUT ms" Style="{StaticResource FieldLabel}" />
+                            <TextBox Text="{Binding ProbeTimeoutMs, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource SmallInput}" />
+                        </StackPanel>
 
                         <CheckBox Content="All baud rates"
                                   IsChecked="{Binding AllBaudRates}"
                                   ToolTip="Sweeps every standard rate. Nine times longer."
-                                  Margin="0,0,16,0" />
+                                  Margin="0,0,16,4" />
 
                         <CheckBox Content="Checksum bus"
                                   IsChecked="{Binding TryChecksum}"
@@ -298,12 +307,12 @@
                               CanUserResizeRows="False"
                               RowHeight="28">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Addr (hex)" Binding="{Binding Address}" Width="90" FontWeight="SemiBold" />
-                            <DataGridTextColumn Header="Addr (dec)" Binding="{Binding AddressDecimal}" Width="90" />
-                            <DataGridTextColumn Header="Module" Binding="{Binding Model}" Width="*" />
-                            <DataGridTextColumn Header="Channels" Binding="{Binding Channels}" Width="90" />
-                            <DataGridTextColumn Header="Baud rate" Binding="{Binding BaudRate}" Width="110" />
-                            <DataGridTextColumn Header="Checksum" Binding="{Binding Checksum}" Width="100" />
+                            <DataGridTextColumn Header="Hex" Binding="{Binding Address}" Width="52" FontWeight="SemiBold" />
+                            <DataGridTextColumn Header="Dec" Binding="{Binding AddressDecimal}" Width="52" />
+                            <DataGridTextColumn Header="Module" Binding="{Binding Model}" Width="*" MinWidth="110" />
+                            <DataGridTextColumn Header="Ch" Binding="{Binding Channels}" Width="46" />
+                            <DataGridTextColumn Header="Baud" Binding="{Binding BaudRate}" Width="82" />
+                            <DataGridTextColumn Header="Checksum" Binding="{Binding Checksum}" Width="84" />
                         </DataGrid.Columns>
                     </DataGrid>
 
@@ -314,9 +323,20 @@
                                Visibility="{Binding Results.Count, Converter={StaticResource ZeroToVisibility}}" />
                 </Grid>
             </Grid>
-        </TabItem>
+        </Border>
 
-        <TabItem Header="Live data">
+        <GridSplitter Grid.Column="1"
+                      Width="10"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
+                      Background="Transparent"
+                      ResizeBehavior="PreviousAndNext" />
+
+        <Border Grid.Column="2"
+                Background="{StaticResource Surface}"
+                BorderBrush="{StaticResource Border}"
+                BorderThickness="1"
+                CornerRadius="6">
             <Grid DataContext="{Binding Live}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -332,18 +352,19 @@
                     </Grid.ColumnDefinitions>
 
                     <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="Channel values" Style="{StaticResource PanelTitle}" Margin="0,0,22,0" />
+                        <TextBlock Text="Channel values" Style="{StaticResource PanelTitle}" Margin="0,0,18,4" />
 
-                        <TextBlock Text="INTERVAL ms" Style="{StaticResource FieldLabel}" />
-                        <TextBox Text="{Binding IntervalMs, UpdateSourceTrigger=PropertyChanged}"
-                                 Style="{StaticResource SmallInput}"
-                                 IsEnabled="{Binding IsRunning, Converter={StaticResource Not}}"
-                                 Margin="0,0,20,0" />
+                        <StackPanel Orientation="Horizontal" Margin="0,0,18,4">
+                            <TextBlock Text="INTERVAL ms" Style="{StaticResource FieldLabel}" />
+                            <TextBox Text="{Binding IntervalMs, UpdateSourceTrigger=PropertyChanged}"
+                                     Style="{StaticResource SmallInput}"
+                                     IsEnabled="{Binding IsRunning, Converter={StaticResource Not}}" />
+                        </StackPanel>
 
                         <TextBlock Style="{StaticResource FieldLabel}"
-                                   Text="{Binding Cycles, StringFormat={}{0:N0} cycles}" Margin="0,0,14,0" />
+                                   Text="{Binding Cycles, StringFormat={}{0:N0} cycles}" Margin="0,0,14,4" />
                         <TextBlock Style="{StaticResource FieldLabel}"
-                                   Text="{Binding Failures, StringFormat={}{0:N0} failed reads}" />
+                                   Text="{Binding Failures, StringFormat={}{0:N0} failed reads}" Margin="0,0,0,4" />
                     </WrapPanel>
 
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -374,11 +395,12 @@
                               CanUserResizeRows="False"
                               RowHeight="26">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Module" Binding="{Binding ModuleLabel}" Width="190" />
-                            <DataGridTextColumn Header="Addr" Binding="{Binding Address}" Width="70" />
-                            <DataGridTextColumn Header="Ch" Binding="{Binding Channel}" Width="60" />
+                            <!-- The address is already part of the module label, so it does not get a column
+                                 of its own in a panel this narrow. -->
+                            <DataGridTextColumn Header="Module" Binding="{Binding ModuleLabel}" Width="*" MinWidth="110" />
+                            <DataGridTextColumn Header="Ch" Binding="{Binding Channel}" Width="44" />
 
-                            <DataGridTextColumn Header="Value" Binding="{Binding Display}" Width="130"
+                            <DataGridTextColumn Header="Value" Binding="{Binding Display}" Width="92"
                                                 FontWeight="SemiBold">
                                 <DataGridTextColumn.ElementStyle>
                                     <Style TargetType="TextBlock">
@@ -388,7 +410,7 @@
                                 </DataGridTextColumn.ElementStyle>
                             </DataGridTextColumn>
 
-                            <DataGridTemplateColumn Header="State" Width="120">
+                            <DataGridTemplateColumn Header="State" Width="98">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock ToolTip="{Binding Detail}">
@@ -415,7 +437,6 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
 
-                            <DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="*" />
                         </DataGrid.Columns>
                     </DataGrid>
 
@@ -426,10 +447,9 @@
                                Visibility="{Binding Channels.Count, Converter={StaticResource ZeroToVisibility}}" />
                 </Grid>
             </Grid>
-        </TabItem>
-
-        </TabControl>
         </Border>
+
+        </Grid>
 
         <!-- Status bar -->
         <DockPanel Grid.Row="4" Grid.ColumnSpan="2" Margin="2,10,2,0">
