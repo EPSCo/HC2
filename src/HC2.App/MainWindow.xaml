@@ -220,17 +220,12 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- Scan toolbar -->
-                <Grid Grid.Row="0" Margin="16,14,16,10">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
-                               IsEnabled="{Binding IsScanning, Converter={StaticResource Not}}">
+                <!-- What the scan covers stays up here; what starts it lives in the footer -->
+                <WrapPanel Grid.Row="0" Margin="16,14,16,10" Orientation="Horizontal" VerticalAlignment="Center"
+                           IsEnabled="{Binding IsScanning, Converter={StaticResource Not}}">
                         <!-- Each label travels with its own control, so a wrap never strands a label on the
                              line above the field it names. -->
                         <TextBlock Text="{Binding Headline}" Style="{StaticResource PanelTitle}" Margin="0,0,18,4" />
@@ -243,21 +238,6 @@
                                       VerticalContentAlignment="Center" />
                         </StackPanel>
 
-                        <StackPanel Orientation="Horizontal" Margin="0,0,16,4">
-                            <TextBlock Text="ADDRESSES" Style="{StaticResource FieldLabel}" />
-                            <TextBox Text="{Binding FirstAddress, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource SmallInput}" />
-                            <TextBlock Text="to" Style="{StaticResource FieldLabel}" Margin="6,0" />
-                            <TextBox Text="{Binding LastAddress, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource SmallInput}" />
-                        </StackPanel>
-
-                        <StackPanel Orientation="Horizontal" Margin="0,0,16,4">
-                            <TextBlock Text="TIMEOUT ms" Style="{StaticResource FieldLabel}" />
-                            <TextBox Text="{Binding ProbeTimeoutMs, UpdateSourceTrigger=PropertyChanged}"
-                                     Style="{StaticResource SmallInput}" />
-                        </StackPanel>
-
                         <CheckBox Content="All baud rates"
                                   IsChecked="{Binding AllBaudRates}"
                                   ToolTip="Sweeps every standard rate. Nine times longer."
@@ -266,18 +246,7 @@
                         <CheckBox Content="Checksum bus"
                                   IsChecked="{Binding TryChecksum}"
                                   ToolTip="Also sweep with checksums enabled. HC2's checksum is not yet verified against hardware — treat a hit here as provisional." />
-                    </WrapPanel>
-
-                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                        <Button Content="Cancel"
-                                Command="{Binding CancelCommand}"
-                                Background="{StaticResource Bad}"
-                                Margin="0,0,8,0"
-                                Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibility}}" />
-
-                        <Button Content="Scan" Command="{Binding ScanCommand}" />
-                    </StackPanel>
-                </Grid>
+                </WrapPanel>
 
                 <!-- Progress -->
                 <StackPanel Grid.Row="1" Margin="16,0,16,10">
@@ -322,6 +291,49 @@
                                VerticalAlignment="Center"
                                Visibility="{Binding Results.Count, Converter={StaticResource ZeroToVisibility}}" />
                 </Grid>
+
+                <!-- Range, timeout and the controls that run a scan -->
+                <Border Grid.Row="3"
+                        Background="{StaticResource SurfaceAlt}"
+                        BorderBrush="{StaticResource Border}"
+                        BorderThickness="0,1,0,0"
+                        CornerRadius="0,0,5,5"
+                        Padding="16,10">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center"
+                                   IsEnabled="{Binding IsScanning, Converter={StaticResource Not}}">
+                            <StackPanel Orientation="Horizontal" Margin="0,0,16,2">
+                                <TextBlock Text="ADDRESSES" Style="{StaticResource FieldLabel}" />
+                                <TextBox Text="{Binding FirstAddress, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource SmallInput}" />
+                                <TextBlock Text="to" Style="{StaticResource FieldLabel}" Margin="6,0" />
+                                <TextBox Text="{Binding LastAddress, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource SmallInput}" />
+                            </StackPanel>
+
+                            <StackPanel Orientation="Horizontal" Margin="0,0,16,2">
+                                <TextBlock Text="TIMEOUT ms" Style="{StaticResource FieldLabel}" />
+                                <TextBox Text="{Binding ProbeTimeoutMs, UpdateSourceTrigger=PropertyChanged}"
+                                         Style="{StaticResource SmallInput}" />
+                            </StackPanel>
+                        </WrapPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Content="Cancel"
+                                    Command="{Binding CancelCommand}"
+                                    Background="{StaticResource Bad}"
+                                    Margin="0,0,8,0"
+                                    Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibility}}" />
+
+                            <Button Content="Scan" Command="{Binding ScanCommand}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
             </Grid>
         </Border>
 
