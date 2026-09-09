@@ -18,10 +18,17 @@ namespace HC2.App.ViewModels;
 /// Polls the modules the last scan found and shows their channel values as they change.
 /// </summary>
 /// <remarks>
+/// <para>
+/// Each module is read under the settings it answered under during the scan, not under one setting for the
+/// whole bus. Modules on the same line can run at different rates — this bench has an ADAM-4017P at 4800 and
+/// an ICP-7017Z at 9600 on COM5 — so the port is reconfigured before each module's read.
+/// </para>
+/// <para>
 /// Read-only: the loop issues nothing but <c>#AA</c> channel reads. All serial work happens on a background
 /// task — a transaction blocks for as long as the timeout allows, which would freeze the window if it ran on
 /// the dispatcher, and doing exactly that inside property setters is one of the faults recorded in the port
 /// triage.
+/// </para>
 /// </remarks>
 public sealed class LiveDataViewModel : ViewModelBase
 {
@@ -119,31 +126,19 @@ public sealed class LiveDataViewModel : ViewModelBase
         // Built on the UI thread so reports marshal back to it.
         var progress   = new Progress<PollResult>(Apply);
         var transports = new List<ISerialTransport>();
-        var modules    = new List<AnalogInputModule>();
+        var entries    = new List<LiveModule>();
         var notes      = new List<string>();
 
-        // A scan can cover several ports, so modules are grouped by the port they answered on and each port
-        // gets its own transport, opened with the settings that module actually replied under.
-        var groups   = discovered.GroupBy(module => module.PortName).ToList();
-        var showPort = groups.Count > 1;
+        var byPort   = discovered.GroupBy(module => module.PortName).ToList();
+        var showPort = byPort.Count > 1;
 
         try
         {
-            foreach (var group in groups)
+            foreach (var group in byPort)
             {
-                var reference = group.First();
-
-                var settings = new SerialPortSettings
-                {
-                    PortName      = group.Key,
-                    BaudRate      = reference.BaudRate,
-                    Parity        = reference.Format.Parity,
-                    DataBits      = reference.Format.DataBits,
-                    StopBits      = reference.Format.StopBits,
-                    ReadTimeoutMs = 300
-                };
-
-                var opened = SerialTransportOpener.Open(settings);
+                // One transport per port, opened once and kept: the modules on it are read in turn and the
+                // port is reconfigured between them, which is far cheaper than reopening.
+                var opened = SerialTransportOpener.Open(SettingsFor(group.First()));
 
                 if (!opened.Opened)
                 {
@@ -156,31 +151,41 @@ public sealed class LiveDataViewModel : ViewModelBase
                 if (opened.Note != null)
                     notes.Add(opened.Note);
 
-                var client = new DconClient(opened.Transport!, reference.Checksum);
+                foreach (var found in group)
+                {
+                    // A client per module, because checksum mode is per module just as the rate is.
+                    var module = ModuleFactory.Create(new DconClient(opened.Transport!, found.Checksum), found);
 
-                foreach (var module in group.Select(d => ModuleFactory.Create(client, d)).Where(m => m != null))
-                    modules.Add(module!);
+                    if (module != null)
+                        entries.Add(new LiveModule(module, opened.Transport!, SettingsFor(found)));
+                }
             }
 
-            if (modules.Count == 0)
+            if (entries.Count == 0)
             {
                 Status = notes.Count > 0 ? string.Join(" ", notes) : "No module could be opened.";
                 return;
             }
 
             // The ICP-7017Z has ten channels or twenty depending on how it is wired, and it is the module that
-            // knows which. Ask before laying out rows, or the grid shows ten channels that do not exist.
-            foreach (var module in modules.OfType<Icp7017Z>())
-                module.TryReadWiringMode(out _);
+            // knows which. Ask before laying out rows — under its own settings, like every other exchange.
+            foreach (var entry in entries.Where(e => e.Module is Icp7017Z))
+            {
+                entry.Transport.Configure(entry.Settings);
+                ((Icp7017Z) entry.Module).TryReadWiringMode(out _);
+            }
 
-            BuildRows(modules, showPort);
+            BuildRows(entries, showPort);
 
-            var scope = showPort ? $"{groups.Count} ports" : groups[0].Key;
+            var scope = showPort ? $"{byPort.Count} ports" : byPort[0].Key;
+            var rates = entries.Select(e => e.Settings.BaudRate).Distinct().OrderBy(rate => rate).ToArray();
+            var mixed = rates.Length > 1 ? $" at {string.Join(" and ", rates.Select(r => $"{r:N0}"))} bps" : string.Empty;
+
             Status = notes.Count == 0
-                ? $"Reading {modules.Count} module(s) on {scope}."
-                : $"Reading {modules.Count} module(s) on {scope}. {string.Join(" ", notes.Distinct())}";
+                ? $"Reading {entries.Count} module(s) on {scope}{mixed}."
+                : $"Reading {entries.Count} module(s) on {scope}{mixed}. {string.Join(" ", notes.Distinct())}";
 
-            await Task.Run(() => Poll(modules, progress, _cancellation.Token), _cancellation.Token);
+            await Task.Run(() => Poll(entries, progress, _cancellation.Token), _cancellation.Token);
 
             Status = $"Stopped after {Cycles:N0} cycle(s), {Failures:N0} failed read(s).";
         }
@@ -203,10 +208,21 @@ public sealed class LiveDataViewModel : ViewModelBase
         }
     }
 
+    /// <summary>The connection one module answered under during the scan.</summary>
+    private static SerialPortSettings SettingsFor(DiscoveredModule found) => new()
+    {
+        PortName      = found.PortName,
+        BaudRate      = found.BaudRate,
+        Parity        = found.Format.Parity,
+        DataBits      = found.Format.DataBits,
+        StopBits      = found.Format.StopBits,
+        ReadTimeoutMs = 300
+    };
+
     /// <summary>Runs on a background thread for as long as the token allows.</summary>
-    private void Poll(IReadOnlyList<AnalogInputModule> modules,
-                       IProgress<PollResult>           progress,
-                       CancellationToken               cancellationToken)
+    private void Poll(IReadOnlyList<LiveModule>  entries,
+                       IProgress<PollResult>     progress,
+                       CancellationToken         cancellationToken)
     {
         var clock = new Stopwatch();
 
@@ -214,15 +230,28 @@ public sealed class LiveDataViewModel : ViewModelBase
         {
             clock.Restart();
 
-            for (var index = 0; index < modules.Count; index++)
+            for (var index = 0; index < entries.Count; index++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var module = modules[index];
+                var entry = entries[index];
 
-                progress.Report(module.TryReadChannels(out var values)
+                // Reapplied before every read: two modules sharing a port can want different rates, so
+                // whatever the previous module left the line at is not necessarily right for this one.
+                if (!entry.Transport.Configure(entry.Settings))
+                {
+                    progress.Report(new PollResult
+                    {
+                        ModuleIndex = index,
+                        Error       = entry.Transport.LastError ?? "Could not apply this module's port settings."
+                    });
+
+                    continue;
+                }
+
+                progress.Report(entry.Module.TryReadChannels(out var values)
                     ? new PollResult { ModuleIndex = index, Values = values }
-                    : new PollResult { ModuleIndex = index, Error  = module.LastError ?? "No response." });
+                    : new PollResult { ModuleIndex = index, Error  = entry.Module.LastError ?? "No response." });
             }
 
             progress.Report(new PollResult { CycleComplete = true, ElapsedMs = clock.ElapsedMilliseconds });
@@ -271,23 +300,23 @@ public sealed class LiveDataViewModel : ViewModelBase
     /// Lays out one row per channel, from the modules themselves rather than from the scan result — a module
     /// knows its real channel count once it has been asked, and the ICP-7017Z's depends on its wiring.
     /// </summary>
-    private void BuildRows(IReadOnlyList<AnalogInputModule> modules, bool showPort)
+    private void BuildRows(IReadOnlyList<LiveModule> entries, bool showPort)
     {
         Channels.Clear();
         _labels.Clear();
 
-        foreach (var module in modules)
+        foreach (var entry in entries)
         {
             // The port is part of the label only when more than one is in play: two ports can carry the same
             // model at the same address, and the label is what pairs a reading with its row.
             var label = showPort
-                ? $"{module.Client.Transport.Settings.PortName} · {module.Model} @ {module.Address:X2}"
-                : $"{module.Model} @ {module.Address:X2}";
+                ? $"{entry.Settings.PortName} · {entry.Module.Model} @ {entry.Module.Address:X2}"
+                : $"{entry.Module.Model} @ {entry.Module.Address:X2}";
 
             _labels.Add(label);
 
-            for (var channel = 0; channel < module.ChannelCount; channel++)
-                Channels.Add(new ChannelReadingRow(label, module.Address, channel));
+            for (var channel = 0; channel < entry.Module.ChannelCount; channel++)
+                Channels.Add(new ChannelReadingRow(label, entry.Module.Address, channel));
         }
     }
 
@@ -299,6 +328,21 @@ public sealed class LiveDataViewModel : ViewModelBase
 
     private void OnScanResultsChanged(object? sender, NotifyCollectionChangedEventArgs e) =>
         _start.RaiseCanExecuteChanged();
+
+    /// <summary>A module together with the line it is reached on and the settings it needs.</summary>
+    private sealed class LiveModule
+    {
+        public LiveModule(AnalogInputModule module, ISerialTransport transport, SerialPortSettings settings)
+        {
+            Module    = module;
+            Transport = transport;
+            Settings  = settings;
+        }
+
+        public AnalogInputModule  Module    { get; }
+        public ISerialTransport   Transport { get; }
+        public SerialPortSettings Settings  { get; }
+    }
 
     /// <summary>One module's reading, or the end of a round.</summary>
     private sealed class PollResult

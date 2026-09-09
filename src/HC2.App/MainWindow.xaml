@@ -191,12 +191,16 @@
                         <TextBlock Text="Scan Range" Style="{StaticResource FieldLabel}" Margin="0,0,0,6" />
 
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- The visible labels are short, but on their own "Start" and "End" name nothing
+                                 useful to a screen reader, and "Start" collides with the live-read button. -->
                             <TextBlock Text="Start" Style="{StaticResource FieldLabel}" />
                             <TextBox Text="{Binding FirstAddress, UpdateSourceTrigger=PropertyChanged}"
+                                     AutomationProperties.Name="First address to scan"
                                      Style="{StaticResource SmallInput}" Margin="0,0,14,0" />
 
                             <TextBlock Text="End" Style="{StaticResource FieldLabel}" />
                             <TextBox Text="{Binding LastAddress, UpdateSourceTrigger=PropertyChanged}"
+                                     AutomationProperties.Name="Last address to scan"
                                      Style="{StaticResource SmallInput}" Margin="0,0,14,0" />
 
                             <Border BorderBrush="{StaticResource Border}" BorderThickness="1,0,0,0"
@@ -204,6 +208,7 @@
 
                             <TextBlock Text="Timeout" Style="{StaticResource FieldLabel}" />
                             <TextBox Text="{Binding ProbeTimeoutMs, UpdateSourceTrigger=PropertyChanged}"
+                                     AutomationProperties.Name="Probe timeout in milliseconds"
                                      Style="{StaticResource SmallInput}" />
                         </StackPanel>
                     </StackPanel>
@@ -337,6 +342,7 @@
                             <StackPanel Orientation="Horizontal" Margin="0,0,18,4">
                                 <TextBlock Text="INTERVAL ms" Style="{StaticResource FieldLabel}" />
                                 <TextBox Text="{Binding IntervalMs, UpdateSourceTrigger=PropertyChanged}"
+                                         AutomationProperties.Name="Polling interval in milliseconds"
                                          Style="{StaticResource SmallInput}"
                                          IsEnabled="{Binding IsRunning, Converter={StaticResource Not}}" />
                             </StackPanel>
