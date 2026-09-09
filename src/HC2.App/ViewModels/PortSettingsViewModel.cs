@@ -88,7 +88,7 @@ public sealed class PortSettingsViewModel : ViewModelBase
     /// Refreshes the port list, keeping ticks for ports that are still present. When nothing survives, the
     /// first port is ticked so the panel is never in a state where a scan is impossible for no visible reason.
     /// </summary>
-    public void SetAvailablePorts(IEnumerable<string> ports)
+    public void SetAvailablePorts(IEnumerable<(string Name, string? Description)> ports)
     {
         var previouslySelected = new HashSet<string>(SelectedPorts, StringComparer.OrdinalIgnoreCase);
 
@@ -97,8 +97,10 @@ public sealed class PortSettingsViewModel : ViewModelBase
 
         ComPorts.Clear();
 
-        foreach (var port in ports)
-            Add(ComPorts, new CheckableOption<string>(port, port, previouslySelected.Contains(port)));
+        // The tick shows only the port name, as the old app's ribbon did; the device name lives in the tooltip
+        // so identifying an adapter does not cost a column of width.
+        foreach (var (name, description) in ports)
+            Add(ComPorts, new CheckableOption<string>(name, name, previouslySelected.Contains(name), description));
 
         if (ComPorts.Count > 0 && !HasPortSelected)
             ComPorts[0].IsSelected = true;

@@ -1,5 +1,4 @@
 using System;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -8,15 +7,20 @@ using HC2.Core.Serial;
 
 namespace HC2.App.ViewModels;
 
+/// <summary>
+/// The shell: enumerates the machine's COM ports into the port ribbon, and owns the scan and live panels.
+/// </summary>
+/// <remarks>
+/// It no longer keeps a port list or a selected port of its own. The ribbon's COM Port tab is the one place
+/// ports are chosen, and it is multi-select — a single "selected port" could not represent two ticked ports.
+/// </remarks>
 public sealed class MainWindowViewModel : ViewModelBase
 {
     private readonly ISerialPortScanner _scanner;
 
-    private SerialPortInfo? _selectedPort;
-    private bool            _isScanning;
-    private bool            _probeAvailability;
-    private bool            _autoRefresh = true;
-    private string          _status      = "Ready.";
+    private bool   _isRefreshing;
+    private bool   _autoRefresh = true;
+    private string _status      = "Ready.";
 
     public MainWindowViewModel(ISerialPortScanner scanner)
     {
@@ -26,47 +30,24 @@ public sealed class MainWindowViewModel : ViewModelBase
         Live           = new LiveDataViewModel(Scan, PortSettings);
     }
 
-    public ObservableCollection<SerialPortInfo> Ports { get; } = new();
-
     public ICommand RefreshCommand { get; }
 
-    /// <summary>Port, baud rate, checksum and protocol, shared by everything that talks to the bus.</summary>
+    /// <summary>Ports, baud rates, checksum modes, framings and protocol — the search space for a scan.</summary>
     public PortSettingsViewModel PortSettings { get; } = new();
 
-    /// <summary>Module discovery on the configured port.</summary>
+    /// <summary>Module discovery across everything ticked in the ribbon.</summary>
     public ModuleScanViewModel Scan { get; }
 
     /// <summary>Continuous channel reads of whatever the last scan found.</summary>
     public LiveDataViewModel Live { get; }
 
-    /// <summary>
-    /// Selecting a port in the list ticks that one port in the ribbon. The reverse is deliberately not wired:
-    /// the ribbon is multi-select, and a list that can hold one selection cannot represent two ticked ports.
-    /// </summary>
-    public SerialPortInfo? SelectedPort
+    public bool IsRefreshing
     {
-        get => _selectedPort;
-        set
-        {
-            if (SetProperty(ref _selectedPort, value) && value != null)
-                PortSettings.SelectOnlyPort(value.PortName);
-        }
+        get => _isRefreshing;
+        private set => SetProperty(ref _isRefreshing, value);
     }
 
-    public bool IsScanning
-    {
-        get => _isScanning;
-        private set => SetProperty(ref _isScanning, value);
-    }
-
-    /// <summary>Open each port during the scan to report whether it is free. Off by default — see the scanner.</summary>
-    public bool ProbeAvailability
-    {
-        get => _probeAvailability;
-        set => SetProperty(ref _probeAvailability, value);
-    }
-
-    /// <summary>Re-scan when Windows reports a device arrival or removal.</summary>
+    /// <summary>Re-enumerate ports when Windows reports a device arrival or removal.</summary>
     public bool AutoRefresh
     {
         get => _autoRefresh;
@@ -81,26 +62,17 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     public async Task RefreshAsync()
     {
-        IsScanning = true;
-        Status     = "Scanning...";
+        IsRefreshing = true;
+        Status       = "Looking for COM ports...";
 
         try
         {
-            var found    = await _scanner.ScanAsync(ProbeAvailability);
-            var selected = SelectedPort?.PortName;
+            // Availability is not probed: opening every port to see whether it is free asserts DTR/RTS on each,
+            // and nothing displays the result now that the port list has gone.
+            var found = await _scanner.ScanAsync(probeAvailability: false);
 
-            Ports.Clear();
-
-            foreach (var port in found)
-                Ports.Add(port);
-
-            // The settings panel offers the same ports as the list, and keeps its selection across a refresh
-            // when that port is still there.
-            PortSettings.SetAvailablePorts(found.Select(port => port.PortName));
-
-            SelectedPort = Ports.FirstOrDefault(p => p.PortName.Equals(selected, StringComparison.OrdinalIgnoreCase))
-                        ?? Ports.FirstOrDefault(p => p.PortName == PortSettings.PrimaryPort)
-                        ?? Ports.FirstOrDefault();
+            PortSettings.SetAvailablePorts(found.Select(port =>
+                (port.PortName, string.IsNullOrWhiteSpace(port.FriendlyName) ? null : port.FriendlyName)));
 
             Status = found.Count switch
             {
@@ -111,19 +83,18 @@ public sealed class MainWindowViewModel : ViewModelBase
         }
         catch (Exception e)
         {
-            Status = $"Scan failed: {e.Message}";
+            Status = $"Could not list COM ports: {e.Message}";
         }
         finally
         {
-            IsScanning = false;
+            IsRefreshing = false;
         }
     }
 
     /// <summary>Called by the window when Windows signals a device-tree change.</summary>
     public void OnDeviceChanged()
     {
-        if (AutoRefresh && !IsScanning)
+        if (AutoRefresh && !IsRefreshing)
             _ = RefreshAsync();
     }
-
 }

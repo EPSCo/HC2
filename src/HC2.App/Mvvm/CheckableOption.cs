@@ -11,16 +11,20 @@ public sealed class CheckableOption<T> : ViewModelBase
 {
     private bool _isSelected;
 
-    public CheckableOption(T value, string label, bool isSelected = false)
+    public CheckableOption(T value, string label, bool isSelected = false, string? description = null)
     {
         Value       = value;
         Label       = label;
+        Description = description;
         _isSelected = isSelected;
     }
 
     public T Value { get; }
 
     public string Label { get; }
+
+    /// <summary>Longer text for a tooltip — a port's device name, say, which will not fit on the tick.</summary>
+    public string? Description { get; }
 
     public bool IsSelected
     {
