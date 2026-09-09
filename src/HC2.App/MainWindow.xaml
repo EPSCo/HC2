@@ -59,7 +59,8 @@
     <Grid Margin="16">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" MinHeight="200" />
+            <RowDefinition Height="*" MinHeight="180" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
@@ -238,6 +239,7 @@
                     <!-- Results -->
                     <Grid Grid.Row="1">
                         <DataGrid ItemsSource="{Binding Results}"
+                                  SelectedItem="{Binding SelectedResult}"
                                   AutoGenerateColumns="False"
                                   IsReadOnly="True"
                                   HeadersVisibility="Column"
@@ -427,8 +429,78 @@
             </Border>
         </Grid>
 
+        <!-- Selected module: read over that module's own connection, not the ribbon's -->
+        <Border Grid.Row="2"
+                Background="{StaticResource Surface}"
+                BorderBrush="{StaticResource Border}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Margin="0,12,0,0"
+                DataContext="{Binding ModuleDetail}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="16,12,16,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding Headline}" Style="{StaticResource PanelTitle}" />
+                        <TextBlock Text="{Binding Connection}" Style="{StaticResource Caption}" Margin="0,2,0,0" />
+                        <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <Button Grid.Column="1"
+                            Content="Read ranges"
+                            MinWidth="110"
+                            VerticalAlignment="Top"
+                            Command="{Binding ReadCommand}" />
+                </Grid>
+
+                <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding Channels}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          HeadersVisibility="Column"
+                          GridLinesVisibility="Horizontal"
+                          HorizontalGridLinesBrush="{StaticResource Border}"
+                          BorderThickness="0"
+                          Background="Transparent"
+                          RowBackground="Transparent"
+                          AlternatingRowBackground="Transparent"
+                          SelectionMode="Single"
+                          CanUserResizeRows="False"
+                          RowHeight="24"
+                          MaxHeight="150">
+                    <!-- Visibility only through the style: a local value beats a style trigger, so setting it
+                         here as well would pin the grid visible with nothing in it. -->
+                    <DataGrid.Style>
+                        <Style TargetType="DataGrid">
+                            <Setter Property="Visibility" Value="Visible" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Channels.Count}" Value="0">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </DataGrid.Style>
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Ch" Binding="{Binding Channel}" Width="52" FontWeight="SemiBold" />
+                        <DataGridTextColumn Header="Type code" Binding="{Binding CodeText}" Width="90" />
+                        <DataGridTextColumn Header="Input range" Binding="{Binding Range}" Width="*" MinWidth="160" />
+                        <DataGridTextColumn Header="Span" Binding="{Binding Span}" Width="180" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Border>
+
         <!-- Status bar -->
-        <DockPanel Grid.Row="2" Margin="2,10,2,0">
+        <DockPanel Grid.Row="3" Margin="2,10,2,0">
             <TextBlock DockPanel.Dock="Right"
                        Style="{StaticResource Caption}"
                        Text="{Binding PortSettings.ComPorts.Count, StringFormat={}{0} port(s)}" />

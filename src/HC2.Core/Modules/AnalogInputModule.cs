@@ -207,12 +207,16 @@ public abstract class AnalogInputModule
         if (!Execute(DconCommands.ReadInputRange(Address, ChannelField(channel)), out var response))
             return false;
 
-        var payload = DconResponse.Payload(response);
+        // The module echoes the channel and the range, not just the code: an ADAM-4017P answers "!01C0R07" and
+        // an ICP-7017Z in single-ended wiring "!02C00R1A", where the channel field is two digits wide. So the
+        // code is what follows the last 'R' — taking a fixed number of trailing characters, as
+        // HardwareController did (two for the 4017P, three for the 4117), only works for one channel width and
+        // is what made its 4117 version unable to parse anything at all.
+        var payload  = DconResponse.Payload(response);
+        var marker   = payload.LastIndexOf('R');
+        var codeText = marker >= 0 ? payload.Substring(marker + 1) : payload;
 
-        // Parse the payload rather than a fixed number of trailing characters. HardwareController took the last
-        // two characters for the 4017P and the last three for the 4117; the three-character form reads one
-        // character of the address as part of the code and cannot be right for both.
-        if (!DconResponse.IsAcknowledged(response) || !TryHex(payload, out var value) || value is < 0 or > 255)
+        if (!DconResponse.IsAcknowledged(response) || !TryHex(codeText, out var value) || value is < 0 or > 255)
             return Fail($"Address {Address:X2} answered '{response}' to an input-range read.");
 
         code = (byte) value;

@@ -28,6 +28,7 @@ public sealed class MainWindowViewModel : ViewModelBase
         RefreshCommand = new AsyncRelayCommand(RefreshAsync);
         Scan           = new ModuleScanViewModel(PortSettings);
         Live           = new LiveDataViewModel(Scan, PortSettings);
+        ModuleDetail   = new ModuleDetailViewModel(Scan);
     }
 
     public ICommand RefreshCommand { get; }
@@ -40,6 +41,9 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     /// <summary>Continuous channel reads of whatever the last scan found.</summary>
     public LiveDataViewModel Live { get; }
+
+    /// <summary>The selected module's own configuration, read over its own connection.</summary>
+    public ModuleDetailViewModel ModuleDetail { get; }
 
     public bool IsRefreshing
     {

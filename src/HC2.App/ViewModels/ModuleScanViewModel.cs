@@ -19,6 +19,7 @@ public sealed class ModuleScanViewModel : ViewModelBase
     private readonly RelayCommand          _cancel;
 
     private CancellationTokenSource? _cancellation;
+    private DiscoveredModuleRow?     _selectedResult;
 
     private int    _firstAddress = 0;
     private int    _lastAddress  = 255;
@@ -37,6 +38,17 @@ public sealed class ModuleScanViewModel : ViewModelBase
     }
 
     public ObservableCollection<DiscoveredModuleRow> Results { get; } = new();
+
+    /// <summary>
+    /// The result row the user picked. Anything that talks to one module works from this, because a found
+    /// module carries the port, rate, framing and checksum it actually answered under — which need not be what
+    /// the ribbon currently shows, and need not match the other modules on the bus.
+    /// </summary>
+    public DiscoveredModuleRow? SelectedResult
+    {
+        get => _selectedResult;
+        set => SetProperty(ref _selectedResult, value);
+    }
 
     public ICommand ScanCommand   => _scan;
     public ICommand CancelCommand => _cancel;
