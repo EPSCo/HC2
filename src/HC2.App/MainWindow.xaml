@@ -218,12 +218,11 @@
             <Grid DataContext="{Binding Scan}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <!-- What the scan covers stays up here; what starts it lives in the footer -->
+                <!-- What the scan covers stays up here; what starts it, and how it is going, live in the footer -->
                 <WrapPanel Grid.Row="0" Margin="16,14,16,10" Orientation="Horizontal" VerticalAlignment="Center"
                            IsEnabled="{Binding IsScanning, Converter={StaticResource Not}}">
                         <!-- Each label travels with its own control, so a wrap never strands a label on the
@@ -248,20 +247,8 @@
                                   ToolTip="Also sweep with checksums enabled. HC2's checksum is not yet verified against hardware — treat a hit here as provisional." />
                 </WrapPanel>
 
-                <!-- Progress -->
-                <StackPanel Grid.Row="1" Margin="16,0,16,10">
-                    <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}" Margin="0,0,0,6" />
-
-                    <ProgressBar Height="4"
-                                 Minimum="0" Maximum="1"
-                                 Value="{Binding Progress, Mode=OneWay}"
-                                 Foreground="{StaticResource Accent}"
-                                 Background="{StaticResource SurfaceAlt}"
-                                 BorderThickness="0" />
-                </StackPanel>
-
                 <!-- Results -->
-                <Grid Grid.Row="2">
+                <Grid Grid.Row="1">
                     <DataGrid ItemsSource="{Binding Results}"
                               AutoGenerateColumns="False"
                               IsReadOnly="True"
@@ -292,13 +279,26 @@
                                Visibility="{Binding Results.Count, Converter={StaticResource ZeroToVisibility}}" />
                 </Grid>
 
-                <!-- Range, timeout and the controls that run a scan -->
-                <Border Grid.Row="3"
+                <!-- Range, timeout, progress and the controls that run a scan -->
+                <Border Grid.Row="2"
                         Background="{StaticResource SurfaceAlt}"
                         BorderBrush="{StaticResource Border}"
                         BorderThickness="0,1,0,0"
                         CornerRadius="0,0,5,5"
                         Padding="16,10">
+                  <StackPanel>
+                    <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}" Margin="0,0,0,6" />
+
+                    <!-- Track takes the border colour, not the surface tint: the footer is already tinted, so
+                         a SurfaceAlt track would be invisible against it. -->
+                    <ProgressBar Height="4"
+                                 Minimum="0" Maximum="1"
+                                 Value="{Binding Progress, Mode=OneWay}"
+                                 Foreground="{StaticResource Accent}"
+                                 Background="{StaticResource Border}"
+                                 BorderThickness="0"
+                                 Margin="0,0,0,10" />
+
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
@@ -333,6 +333,7 @@
                             <Button Content="Scan" Command="{Binding ScanCommand}" />
                         </StackPanel>
                     </Grid>
+                  </StackPanel>
                 </Border>
             </Grid>
         </Border>
