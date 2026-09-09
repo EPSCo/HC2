@@ -123,8 +123,6 @@ public sealed class LiveDataViewModel : ViewModelBase
             return;
         }
 
-        BuildRows(discovered);
-
         Cycles     = 0;
         Failures   = 0;
         IsRunning  = true;
@@ -142,6 +140,13 @@ public sealed class LiveDataViewModel : ViewModelBase
                                     .Where(module => module != null)
                                     .Select(module => module!)
                                     .ToList();
+
+            // The ICP-7017Z has ten channels or twenty depending on how it is wired, and it is the module that
+            // knows which. Ask before laying out rows, or the grid shows ten channels that do not exist.
+            foreach (var module in modules.OfType<Icp7017Z>())
+                module.TryReadWiringMode(out _);
+
+            BuildRows(modules);
 
             Status = opened.Note is null
                 ? $"Reading {modules.Count} module(s) on {portName}."
@@ -231,12 +236,16 @@ public sealed class LiveDataViewModel : ViewModelBase
         }
     }
 
-    private void BuildRows(IReadOnlyList<DiscoveredModule> discovered)
+    /// <summary>
+    /// Lays out one row per channel, from the modules themselves rather than from the scan result — a module
+    /// knows its real channel count once it has been asked, and the ICP-7017Z's depends on its wiring.
+    /// </summary>
+    private void BuildRows(IReadOnlyList<AnalogInputModule> modules)
     {
         Channels.Clear();
         _labels.Clear();
 
-        foreach (var module in discovered)
+        foreach (var module in modules)
         {
             var label = $"{module.Model} @ {module.Address:X2}";
             _labels.Add(label);

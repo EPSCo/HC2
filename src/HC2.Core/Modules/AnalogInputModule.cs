@@ -60,7 +60,10 @@ public abstract class AnalogInputModule
     public bool TryReadChannels(out double[] values)
     {
         if (Client.TryReadChannels(Address, out values))
+        {
+            LastError = null;
             return true;
+        }
 
         LastError = Client.LastError;
         return false;
@@ -185,18 +188,21 @@ public abstract class AnalogInputModule
 
         // Fixed width, so a mask with a zero high nibble is still sent as the full field. The old app formatted
         // with "X1", which is a minimum width rather than a fixed one, so the digit count varied with the value.
-        var digits = (ChannelCount + 3) / 4;
-
-        if (!Execute(DconCommands.WriteChannelMask(Address, mask, digits), out var response))
+        if (!Execute(DconCommands.WriteChannelMask(Address, mask, ChannelMaskDigits), out var response))
             return false;
 
         return DconResponse.IsAcknowledged(response)
             || Fail($"Address {Address:X2} answered '{response}' to a channel-enable write.");
     }
 
-    public bool TryReadInputRange(int channel, out InputRange? range)
+    /// <summary>
+    /// Reads a channel's input range as the raw type code, without requiring the model to have a documented
+    /// range table. The ICP-7017Z has no established table in this codebase, so this is the only form available
+    /// for it — HardwareController likewise carried its 7017Z ranges as bare integers.
+    /// </summary>
+    public bool TryReadInputRangeCode(int channel, out byte code)
     {
-        range = null;
+        code = 0;
 
         if (!Execute(DconCommands.ReadInputRange(Address, ChannelField(channel)), out var response))
             return false;
@@ -206,10 +212,27 @@ public abstract class AnalogInputModule
         // Parse the payload rather than a fixed number of trailing characters. HardwareController took the last
         // two characters for the 4017P and the last three for the 4117; the three-character form reads one
         // character of the address as part of the code and cannot be right for both.
-        if (!DconResponse.IsAcknowledged(response) || !TryHex(payload, out var code))
+        if (!DconResponse.IsAcknowledged(response) || !TryHex(payload, out var value) || value is < 0 or > 255)
             return Fail($"Address {Address:X2} answered '{response}' to an input-range read.");
 
-        range = InputRanges.Find(SupportedRanges, (byte) code);
+        code = (byte) value;
+        return true;
+    }
+
+    /// <summary>Reads a channel's input range and resolves it against the model's range table.</summary>
+    public bool TryReadInputRange(int channel, out InputRange? range)
+    {
+        range = null;
+
+        // Checked before transacting: with no table the answer cannot be resolved whatever comes back, and
+        // there is no reason to occupy the bus to find that out.
+        if (SupportedRanges.Count == 0)
+            return Fail($"{Model} has no range table here; read the raw code with {nameof(TryReadInputRangeCode)}.");
+
+        if (!TryReadInputRangeCode(channel, out var code))
+            return false;
+
+        range = InputRanges.Find(SupportedRanges, code);
 
         return range != null
             || Fail($"Channel {channel} reports input range 0x{code:X2}, which {Model} does not list.");
@@ -217,7 +240,8 @@ public abstract class AnalogInputModule
 
     public bool TryWriteInputRange(int channel, byte code)
     {
-        if (InputRanges.Find(SupportedRanges, code) == null)
+        // A model with no range table cannot have its codes validated here; the module itself rejects a bad one.
+        if (SupportedRanges.Count > 0 && InputRanges.Find(SupportedRanges, code) == null)
             return Fail($"{Model} does not accept input range 0x{code:X2}.");
 
         if (!Execute(DconCommands.WriteInputRange(Address, ChannelField(channel), code), out var response))
@@ -314,10 +338,21 @@ public abstract class AnalogInputModule
     /// </summary>
     protected virtual string ChannelField(int channel) => channel.ToString("X1");
 
+    /// <summary>
+    /// Hex digits in the channel-enable mask field. Enough to carry one bit per channel by default; the
+    /// ICP-7017Z uses wider fields than its channel count strictly needs.
+    /// </summary>
+    protected virtual int ChannelMaskDigits => (ChannelCount + 3) / 4;
+
     private bool Execute(string command, out string response)
     {
         if (Client.Execute(command, out response))
+        {
+            // Cleared on every successful exchange so a stale message from an earlier failure cannot be read
+            // as describing the call that just succeeded.
+            LastError = null;
             return true;
+        }
 
         LastError = Client.LastError;
         return false;
