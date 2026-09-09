@@ -27,6 +27,16 @@ public abstract class AnalogInputModule
     /// </summary>
     public const int AutoCalibrationMs = 7000;
 
+    /// <summary>
+    /// What a channel reads when it has nothing to measure — disabled, open, or below range. Observed on the
+    /// bench: an ADAM-4017P with two unconnected inputs returned exactly this on those channels while the rest
+    /// read normally. It is a marker, not a measurement, and must never reach a calculation.
+    /// </summary>
+    public const double UnderRange = -999999;
+
+    /// <summary>True for a value that is <see cref="UnderRange"/> or not a reading at all.</summary>
+    public static bool IsMeasurement(double value) => !double.IsNaN(value) && value > UnderRange + 1;
+
     protected AnalogInputModule(DconClient client, int address)
     {
         Client  = client ?? throw new ArgumentNullException(nameof(client));

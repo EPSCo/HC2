@@ -202,14 +202,16 @@
                       Background="Transparent"
                       ResizeBehavior="PreviousAndNext" />
 
-        <!-- Module scan -->
+        <!-- Module scan / live data -->
         <Border Grid.Row="3" Grid.ColumnSpan="2"
                 Background="{StaticResource Surface}"
                 BorderBrush="{StaticResource Border}"
                 BorderThickness="1"
-                CornerRadius="6"
-                DataContext="{Binding Scan}">
-            <Grid>
+                CornerRadius="6">
+        <TabControl Background="Transparent" BorderThickness="0" Margin="8,6,8,8">
+
+        <TabItem Header="Module scan">
+            <Grid DataContext="{Binding Scan}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -312,6 +314,121 @@
                                Visibility="{Binding Results.Count, Converter={StaticResource ZeroToVisibility}}" />
                 </Grid>
             </Grid>
+        </TabItem>
+
+        <TabItem Header="Live data">
+            <Grid DataContext="{Binding Live}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Live toolbar -->
+                <Grid Grid.Row="0" Margin="8,12,8,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Channel values" Style="{StaticResource PanelTitle}" Margin="0,0,22,0" />
+
+                        <TextBlock Text="INTERVAL ms" Style="{StaticResource FieldLabel}" />
+                        <TextBox Text="{Binding IntervalMs, UpdateSourceTrigger=PropertyChanged}"
+                                 Style="{StaticResource SmallInput}"
+                                 IsEnabled="{Binding IsRunning, Converter={StaticResource Not}}"
+                                 Margin="0,0,20,0" />
+
+                        <TextBlock Style="{StaticResource FieldLabel}"
+                                   Text="{Binding Cycles, StringFormat={}{0:N0} cycles}" Margin="0,0,14,0" />
+                        <TextBlock Style="{StaticResource FieldLabel}"
+                                   Text="{Binding Failures, StringFormat={}{0:N0} failed reads}" />
+                    </WrapPanel>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button Content="Stop"
+                                Command="{Binding StopCommand}"
+                                Background="{StaticResource Bad}"
+                                Margin="0,0,8,0"
+                                Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}" />
+
+                        <Button Content="Start" Command="{Binding StartCommand}" />
+                    </StackPanel>
+                </Grid>
+
+                <TextBlock Grid.Row="1" Text="{Binding Status}" Style="{StaticResource Caption}" Margin="8,0,8,10" />
+
+                <Grid Grid.Row="2">
+                    <DataGrid ItemsSource="{Binding Channels}"
+                              AutoGenerateColumns="False"
+                              IsReadOnly="True"
+                              HeadersVisibility="Column"
+                              GridLinesVisibility="Horizontal"
+                              HorizontalGridLinesBrush="{StaticResource Border}"
+                              BorderThickness="0"
+                              Background="Transparent"
+                              RowBackground="Transparent"
+                              AlternatingRowBackground="Transparent"
+                              SelectionMode="Single"
+                              CanUserResizeRows="False"
+                              RowHeight="26">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Module" Binding="{Binding ModuleLabel}" Width="190" />
+                            <DataGridTextColumn Header="Addr" Binding="{Binding Address}" Width="70" />
+                            <DataGridTextColumn Header="Ch" Binding="{Binding Channel}" Width="60" />
+
+                            <DataGridTextColumn Header="Value" Binding="{Binding Display}" Width="130"
+                                                FontWeight="SemiBold">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="HorizontalAlignment" Value="Right" />
+                                        <Setter Property="Margin" Value="0,0,10,0" />
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+
+                            <DataGridTemplateColumn Header="State" Width="120">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock ToolTip="{Binding Detail}">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Text" Value="{Binding State}" />
+                                                    <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
+                                                    <Setter Property="VerticalAlignment" Value="Center" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding State}" Value="OK">
+                                                            <Setter Property="Foreground" Value="{StaticResource Free}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding State}" Value="Under range">
+                                                            <Setter Property="Foreground" Value="{StaticResource Busy}" />
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding State}" Value="Error">
+                                                            <Setter Property="Foreground" Value="{StaticResource Bad}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+
+                            <DataGridTextColumn Header="Detail" Binding="{Binding Detail}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <TextBlock Text="Run a module scan, then start reading."
+                               Style="{StaticResource Caption}"
+                               HorizontalAlignment="Center"
+                               VerticalAlignment="Center"
+                               Visibility="{Binding Channels.Count, Converter={StaticResource ZeroToVisibility}}" />
+                </Grid>
+            </Grid>
+        </TabItem>
+
+        </TabControl>
         </Border>
 
         <!-- Status bar -->

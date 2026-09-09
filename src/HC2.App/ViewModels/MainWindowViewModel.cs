@@ -22,6 +22,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     {
         _scanner       = scanner;
         RefreshCommand = new AsyncRelayCommand(RefreshAsync);
+        Live           = new LiveDataViewModel(Scan);
     }
 
     public ObservableCollection<SerialPortInfo> Ports { get; } = new();
@@ -30,6 +31,9 @@ public sealed class MainWindowViewModel : ViewModelBase
 
     /// <summary>Module discovery for whichever port is selected.</summary>
     public ModuleScanViewModel Scan { get; } = new();
+
+    /// <summary>Continuous channel reads of whatever the last scan found.</summary>
+    public LiveDataViewModel Live { get; }
 
     public SerialPortInfo? SelectedPort
     {
