@@ -12,6 +12,12 @@ public sealed class DiscoveredModuleRow
 
     public DiscoveredModule Module { get; }
 
+    /// <summary>The port it answered on — a scan can cover several.</summary>
+    public string Port => Module.PortName;
+
+    /// <summary>The framing it answered under, e.g. <c>N,8,1</c>.</summary>
+    public string Format => Module.Format.Label;
+
     /// <summary>The address as the two hex digits every DCON command embeds.</summary>
     public string Address => $"{Module.Address:X2}";
 

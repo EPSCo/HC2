@@ -58,9 +58,12 @@ Validated end to end on the bench bus with no Advantech reference loaded: a 16-a
 address **01** (`!014017P`, ADAM-4017P) and address **02** (`!024117`, ADAM-4117), and channel reads returned
 live engineering-units data from both.
 
-One consequence to keep in mind: while a driver refuses `SetCommState`, the line rate cannot be changed at
-all. Multi-rate scanning and the INIT-mode switch to 9600 are impossible on such an adapter until it is
-replugged or its driver rolled back.
+An earlier version of this note claimed that such an adapter cannot change its line rate at all, and that
+multi-rate scanning was therefore impossible on it. That was inferred from a standalone `SetCommState` probe
+and is wrong: measured through `Win32SerialTransport`, the port reconfigures freely — 4800 → 9600 → 4800 with
+`ConfigurationApplied` true each time — and one multi-rate sweep found the ADAM-4017P at 4800 and the
+ICP-7017Z at 9600. `SerialPort.Open()` still fails at every rate on that adapter, so the fallback stays
+load-bearing; why it fails is not pinned down, since it performs much more setup than `SetCommState` alone.
 
 ## Hardware facts worth more than the code around them
 

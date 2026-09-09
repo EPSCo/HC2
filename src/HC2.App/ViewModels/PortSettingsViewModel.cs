@@ -1,114 +1,139 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Linq;
-using System.Reflection;
 using HC2.App.Mvvm;
 using HC2.Core;
 using HC2.Core.Dcon;
+using HC2.Core.Serial;
 
 namespace HC2.App.ViewModels;
 
 /// <summary>
-/// The settings every conversation on the bus shares: which port, how fast, whether frames carry a checksum,
-/// and which protocol is spoken.
+/// The search space a module scan covers: which ports, which baud rates, which framings, and whether frames
+/// carry a checksum — each a multi-select ribbon rather than a single value.
 /// </summary>
 /// <remarks>
-/// One object rather than a copy per feature, because these are properties of the wire, not of scanning or of
-/// reading: a scan and a live read that disagreed about the baud rate would simply both be wrong.
+/// Modelled on HardwareController's module finder, where these are the dimensions of the sweep. Every extra
+/// tick multiplies the scan, so the defaults are the narrow, known-good ones: the two rates this equipment is
+/// deployed at, checksum off, and the framing every module here ships with.
 /// </remarks>
 public sealed class PortSettingsViewModel : ViewModelBase
 {
-    private string?     _portName;
-    private int         _baudRate = BaudRateCodes.DefaultBitsPerSecond;
-    private bool        _checksum;
     private BusProtocol _protocol = BusProtocol.DconAscii;
 
-    /// <summary>Ports currently present, kept in step with the port list.</summary>
-    public ObservableCollection<string> AvailablePorts { get; } = new();
+    public PortSettingsViewModel()
+    {
+        foreach (var (code, bitsPerSecond) in BaudRateCodes.All)
+        {
+            _ = code;
 
-    public IReadOnlyList<int> BaudRateOptions { get; } =
-        BaudRateCodes.All.Select(entry => entry.BitsPerSecond).ToArray();
+            // 4800 and 9600 pre-ticked: the rate this equipment runs at, and the rate every module leaves the
+            // factory at. HardwareController falls back to exactly this pair when nothing is selected.
+            Add(BaudRates, new CheckableOption<int>(bitsPerSecond, $"{bitsPerSecond:N0}",
+                                                    bitsPerSecond is 4800 or 9600));
+        }
+
+        Add(ChecksumModes, new CheckableOption<bool>(false, "Checksum Disabled", isSelected: true));
+        Add(ChecksumModes, new CheckableOption<bool>(true,  "Checksum Enabled"));
+
+        foreach (var format in SerialFormat.Standard)
+            Add(Formats, new CheckableOption<SerialFormat>(format, format.Label, format.Equals(SerialFormat.Default)));
+    }
+
+    public ObservableCollection<CheckableOption<string>>       ComPorts      { get; } = new();
+    public ObservableCollection<CheckableOption<int>>          BaudRates     { get; } = new();
+    public ObservableCollection<CheckableOption<bool>>         ChecksumModes { get; } = new();
+    public ObservableCollection<CheckableOption<SerialFormat>> Formats       { get; } = new();
 
     public IReadOnlyList<BusProtocol> ProtocolOptions { get; } =
         new[] { BusProtocol.DconAscii, BusProtocol.ModbusRtu };
-
-    public string? PortName
-    {
-        get => _portName;
-        set
-        {
-            if (SetProperty(ref _portName, value))
-                RaisePropertyChanged(nameof(IsPortSelected));
-        }
-    }
-
-    public int BaudRate
-    {
-        get => _baudRate;
-        set => SetProperty(ref _baudRate, value);
-    }
-
-    /// <summary>
-    /// Whether frames carry the two-character checksum. Every module on a line must agree with this, and HC2's
-    /// checksum is not yet confirmed against hardware — see <c>DconChecksum</c>.
-    /// </summary>
-    public bool Checksum
-    {
-        get => _checksum;
-        set => SetProperty(ref _checksum, value);
-    }
 
     public BusProtocol Protocol
     {
         get => _protocol;
         set
         {
-            if (SetProperty(ref _protocol, value))
-            {
-                RaisePropertyChanged(nameof(IsSupportedProtocol));
-                RaisePropertyChanged(nameof(ProtocolWarning));
-                ProtocolChanged?.Invoke(this, EventArgs.Empty);
-            }
+            if (!SetProperty(ref _protocol, value))
+                return;
+
+            RaisePropertyChanged(nameof(IsSupportedProtocol));
+            RaisePropertyChanged(nameof(ProtocolWarning));
+            SelectionChanged?.Invoke(this, EventArgs.Empty);
         }
     }
-
-    public bool IsPortSelected => !string.IsNullOrEmpty(PortName);
 
     /// <summary>False for a protocol HC2 cannot actually speak, which gates every operation.</summary>
     public bool IsSupportedProtocol => Protocol == BusProtocol.DconAscii;
 
     public string ProtocolWarning => IsSupportedProtocol
         ? string.Empty
-        : "Modbus RTU is not implemented yet — scanning and reading are disabled while it is selected.";
+        : "Modbus RTU is not implemented yet — scanning and reading are disabled while it is selected. " +
+          "DCON's identification command has no Modbus equivalent, so a Modbus bus cannot be discovered here.";
 
-    /// <summary>Raised when the protocol changes, so commands can re-evaluate whether they can run.</summary>
-    public event EventHandler? ProtocolChanged;
+    /// <summary>Raised whenever any tick or the protocol changes, so commands can re-evaluate.</summary>
+    public event EventHandler? SelectionChanged;
 
-    /// <summary>Reads a value's <see cref="DescriptionAttribute"/> for display.</summary>
-    public static string Describe(BusProtocol protocol)
-    {
-        var field = typeof(BusProtocol).GetField(protocol.ToString(), BindingFlags.Public | BindingFlags.Static);
+    public IReadOnlyList<string>       SelectedPorts     => Selected(ComPorts);
+    public IReadOnlyList<int>          SelectedBaudRates => Fallback(Selected(BaudRates),     new[] { 4800, 9600 });
+    public IReadOnlyList<bool>         SelectedChecksums => Fallback(Selected(ChecksumModes), new[] { false });
+    public IReadOnlyList<SerialFormat> SelectedFormats   => Fallback(Selected(Formats),       new[] { SerialFormat.Default });
 
-        return field?.GetCustomAttribute<DescriptionAttribute>()?.Description ?? protocol.ToString();
-    }
+    public bool HasPortSelected => ComPorts.Any(option => option.IsSelected);
+
+    /// <summary>The first selected port, for anything that works on one at a time.</summary>
+    public string? PrimaryPort => SelectedPorts.FirstOrDefault();
 
     /// <summary>
-    /// Refreshes the port list, keeping the current selection when that port is still present and falling back
-    /// to the first available one when it is not.
+    /// Refreshes the port list, keeping ticks for ports that are still present. When nothing survives, the
+    /// first port is ticked so the panel is never in a state where a scan is impossible for no visible reason.
     /// </summary>
     public void SetAvailablePorts(IEnumerable<string> ports)
     {
-        var current = PortName;
+        var previouslySelected = new HashSet<string>(SelectedPorts, StringComparer.OrdinalIgnoreCase);
 
-        AvailablePorts.Clear();
+        foreach (var option in ComPorts)
+            option.SelectionChanged -= OnOptionChanged;
+
+        ComPorts.Clear();
 
         foreach (var port in ports)
-            AvailablePorts.Add(port);
+            Add(ComPorts, new CheckableOption<string>(port, port, previouslySelected.Contains(port)));
 
-        PortName = current != null && AvailablePorts.Contains(current)
-            ? current
-            : AvailablePorts.FirstOrDefault();
+        if (ComPorts.Count > 0 && !HasPortSelected)
+            ComPorts[0].IsSelected = true;
+
+        RaisePropertyChanged(nameof(HasPortSelected));
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    /// <summary>Ticks exactly one port, for the port list selection driving the ribbon.</summary>
+    public void SelectOnlyPort(string? portName)
+    {
+        foreach (var option in ComPorts)
+            option.IsSelected = string.Equals(option.Value, portName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void Add<T>(ObservableCollection<CheckableOption<T>> target, CheckableOption<T> option)
+    {
+        option.SelectionChanged += OnOptionChanged;
+        target.Add(option);
+    }
+
+    private void OnOptionChanged(object? sender, EventArgs e)
+    {
+        RaisePropertyChanged(nameof(HasPortSelected));
+        RaisePropertyChanged(nameof(PrimaryPort));
+        SelectionChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    private static IReadOnlyList<T> Selected<T>(IEnumerable<CheckableOption<T>> options) =>
+        options.Where(option => option.IsSelected).Select(option => option.Value).ToArray();
+
+    /// <summary>
+    /// Falls back to a sensible set when nothing is ticked, rather than scanning nothing at all — the same
+    /// thing HardwareController does before a search.
+    /// </summary>
+    private static IReadOnlyList<T> Fallback<T>(IReadOnlyList<T> selected, IReadOnlyList<T> whenEmpty) =>
+        selected.Count > 0 ? selected : whenEmpty;
 }

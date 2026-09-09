@@ -35,6 +35,27 @@
             <Setter Property="Margin" Value="0,0,6,0" />
         </Style>
 
+        <!-- One template for every ribbon tab: each option is a tick that widens the search. -->
+        <DataTemplate x:Key="OptionTemplate">
+            <CheckBox Content="{Binding Label}"
+                      IsChecked="{Binding IsSelected}"
+                      VerticalAlignment="Center"
+                      VerticalContentAlignment="Center"
+                      Margin="0,0,18,0" />
+        </DataTemplate>
+
+        <ItemsPanelTemplate x:Key="OptionPanel">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" />
+        </ItemsPanelTemplate>
+
+        <Style x:Key="RibbonScroll" TargetType="ScrollViewer">
+            <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+        </Style>
+
         <Style x:Key="SmallInput" TargetType="TextBox">
             <Setter Property="Width" Value="52" />
             <Setter Property="Padding" Value="4,3" />
@@ -166,70 +187,87 @@
                         Padding="16,10"
                         DataContext="{Binding PortSettings}">
                     <StackPanel>
-                        <WrapPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="Port settings" Style="{StaticResource PanelTitle}" Margin="0,0,18,2" />
+                        <TextBlock Text="Port Settings" Style="{StaticResource PanelTitle}" Margin="0,0,0,6" />
 
-                            <StackPanel Orientation="Horizontal" Margin="0,0,16,2">
-                                <TextBlock Text="COM PORT" Style="{StaticResource FieldLabel}" />
-                                <ComboBox ItemsSource="{Binding AvailablePorts}"
-                                          SelectedItem="{Binding PortName}"
-                                          Width="94"
-                                          VerticalContentAlignment="Center" />
-                            </StackPanel>
+                        <!-- Each tab is one dimension of the search. Ticks are cumulative: a scan tries every
+                             combination of the ticked ports, rates, checksum modes and framings. -->
+                        <TabControl Background="Transparent" BorderThickness="0" Padding="0">
+                            <TabItem Header="COM Port">
+                                <ScrollViewer Style="{StaticResource RibbonScroll}">
+                                    <ItemsControl ItemsSource="{Binding ComPorts}"
+                                                  ItemTemplate="{StaticResource OptionTemplate}"
+                                                  ItemsPanel="{StaticResource OptionPanel}" />
+                                </ScrollViewer>
+                            </TabItem>
 
-                            <StackPanel Orientation="Horizontal" Margin="0,0,16,2">
-                                <TextBlock Text="BAUD" Style="{StaticResource FieldLabel}" />
-                                <ComboBox ItemsSource="{Binding BaudRateOptions}"
-                                          SelectedItem="{Binding BaudRate}"
-                                          Width="82"
-                                          VerticalContentAlignment="Center" />
-                            </StackPanel>
+                            <TabItem Header="Baudrate">
+                                <ScrollViewer Style="{StaticResource RibbonScroll}">
+                                    <ItemsControl ItemsSource="{Binding BaudRates}"
+                                                  ItemTemplate="{StaticResource OptionTemplate}"
+                                                  ItemsPanel="{StaticResource OptionPanel}" />
+                                </ScrollViewer>
+                            </TabItem>
 
-                            <StackPanel Orientation="Horizontal" Margin="0,0,16,2">
-                                <TextBlock Text="PROTOCOL" Style="{StaticResource FieldLabel}" />
-                                <ComboBox ItemsSource="{Binding ProtocolOptions}"
-                                          SelectedItem="{Binding Protocol}"
-                                          Width="112"
-                                          VerticalContentAlignment="Center">
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding Converter={StaticResource EnumDescription}}" />
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
+                            <TabItem Header="Checksum">
+                                <ScrollViewer Style="{StaticResource RibbonScroll}"
+                                              ToolTip="HC2's checksum is not yet verified against hardware — treat a hit with it enabled as provisional.">
+                                    <ItemsControl ItemsSource="{Binding ChecksumModes}"
+                                                  ItemTemplate="{StaticResource OptionTemplate}"
+                                                  ItemsPanel="{StaticResource OptionPanel}" />
+                                </ScrollViewer>
+                            </TabItem>
 
-                                    <!-- Without this the item reports its enum member name to accessibility
-                                         tools while showing the readable one, so the two disagree. -->
-                                    <ComboBox.ItemContainerStyle>
-                                        <Style TargetType="ComboBoxItem">
-                                            <Setter Property="AutomationProperties.Name"
-                                                    Value="{Binding Converter={StaticResource EnumDescription}}" />
-                                        </Style>
-                                    </ComboBox.ItemContainerStyle>
-                                </ComboBox>
-                            </StackPanel>
+                            <TabItem Header="Format">
+                                <ScrollViewer Style="{StaticResource RibbonScroll}">
+                                    <ItemsControl ItemsSource="{Binding Formats}"
+                                                  ItemTemplate="{StaticResource OptionTemplate}"
+                                                  ItemsPanel="{StaticResource OptionPanel}" />
+                                </ScrollViewer>
+                            </TabItem>
 
-                            <CheckBox Content="Checksum"
-                                      IsChecked="{Binding Checksum}"
-                                      ToolTip="Every module on the line must agree. HC2's checksum is not yet verified against hardware."
-                                      Margin="0,0,0,2" />
-                        </WrapPanel>
+                            <TabItem Header="Protocol">
+                                <ScrollViewer Style="{StaticResource RibbonScroll}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <ComboBox ItemsSource="{Binding ProtocolOptions}"
+                                                  SelectedItem="{Binding Protocol}"
+                                                  Width="118"
+                                                  VerticalContentAlignment="Center"
+                                                  Margin="0,0,14,0">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <TextBlock Text="{Binding Converter={StaticResource EnumDescription}}" />
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
 
-                        <!-- Visibility is set only through the style, never locally: a local value beats a
-                             style trigger and the warning would then never hide. -->
-                        <TextBlock Text="{Binding ProtocolWarning}" TextWrapping="Wrap">
-                            <TextBlock.Style>
-                                <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
-                                    <Setter Property="Foreground" Value="{StaticResource Busy}" />
-                                    <Setter Property="Margin" Value="0,8,0,0" />
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding IsSupportedProtocol}" Value="False">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </TextBlock.Style>
-                        </TextBlock>
+                                            <!-- Without this the item reports its enum member name to
+                                                 accessibility tools while showing the readable one. -->
+                                            <ComboBox.ItemContainerStyle>
+                                                <Style TargetType="ComboBoxItem">
+                                                    <Setter Property="AutomationProperties.Name"
+                                                            Value="{Binding Converter={StaticResource EnumDescription}}" />
+                                                </Style>
+                                            </ComboBox.ItemContainerStyle>
+                                        </ComboBox>
+
+                                        <!-- Visibility comes only from the style: a local value beats a style
+                                             trigger, and the warning would then never hide. -->
+                                        <TextBlock Text="{Binding ProtocolWarning}" TextWrapping="NoWrap">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
+                                                    <Setter Property="Foreground" Value="{StaticResource Busy}" />
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSupportedProtocol}" Value="False">
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
+                                </ScrollViewer>
+                            </TabItem>
+                        </TabControl>
                     </StackPanel>
                 </Border>
             </Grid>
@@ -313,9 +351,6 @@
                              line above the field it names. -->
                         <TextBlock Text="{Binding Headline}" Style="{StaticResource PanelTitle}" Margin="0,0,18,4" />
 
-                        <CheckBox Content="Sweep all baud rates"
-                                  IsChecked="{Binding AllBaudRates}"
-                                  ToolTip="Ignores the configured baud rate and tries every standard one. Nine times longer." />
                 </WrapPanel>
 
                 <!-- Results -->
@@ -334,12 +369,14 @@
                               CanUserResizeRows="False"
                               RowHeight="28">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Hex" Binding="{Binding Address}" Width="52" FontWeight="SemiBold" />
-                            <DataGridTextColumn Header="Dec" Binding="{Binding AddressDecimal}" Width="52" />
-                            <DataGridTextColumn Header="Module" Binding="{Binding Model}" Width="*" MinWidth="110" />
-                            <DataGridTextColumn Header="Ch" Binding="{Binding Channels}" Width="46" />
-                            <DataGridTextColumn Header="Baud" Binding="{Binding BaudRate}" Width="82" />
-                            <DataGridTextColumn Header="Checksum" Binding="{Binding Checksum}" Width="84" />
+                            <DataGridTextColumn Header="Port" Binding="{Binding Port}" Width="58" />
+                            <DataGridTextColumn Header="Hex" Binding="{Binding Address}" Width="46" FontWeight="SemiBold" />
+                            <DataGridTextColumn Header="Dec" Binding="{Binding AddressDecimal}" Width="46" />
+                            <DataGridTextColumn Header="Module" Binding="{Binding Model}" Width="*" MinWidth="100" />
+                            <DataGridTextColumn Header="Ch" Binding="{Binding Channels}" Width="40" />
+                            <DataGridTextColumn Header="Baud" Binding="{Binding BaudRate}" Width="76" />
+                            <DataGridTextColumn Header="Format" Binding="{Binding Format}" Width="60" />
+                            <DataGridTextColumn Header="Checksum" Binding="{Binding Checksum}" Width="78" />
                         </DataGrid.Columns>
                     </DataGrid>
 

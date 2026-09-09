@@ -1,6 +1,6 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -11,7 +11,7 @@ using HC2.Core.Serial;
 
 namespace HC2.App.ViewModels;
 
-/// <summary>Drives a <see cref="ModuleFinder"/> sweep over the configured port.</summary>
+/// <summary>Runs a <see cref="ModuleFinder"/> sweep across every port and setting ticked in the ribbon.</summary>
 public sealed class ModuleScanViewModel : ViewModelBase
 {
     private readonly PortSettingsViewModel _settings;
@@ -22,11 +22,10 @@ public sealed class ModuleScanViewModel : ViewModelBase
 
     private int    _firstAddress = 0;
     private int    _lastAddress  = 255;
-    private bool   _allBaudRates;
     private int    _probeTimeoutMs = 200;
     private bool   _isScanning;
     private double _progress;
-    private string _status = "Select a port, then scan for modules.";
+    private string _status = "Tick a port, then scan for modules.";
 
     public ModuleScanViewModel(PortSettingsViewModel settings)
     {
@@ -34,8 +33,7 @@ public sealed class ModuleScanViewModel : ViewModelBase
         _scan     = new AsyncRelayCommand(ScanAsync, CanScan);
         _cancel   = new RelayCommand(Cancel, () => IsScanning);
 
-        _settings.PropertyChanged += OnSettingsChanged;
-        _settings.ProtocolChanged += (_, _) => _scan.RaiseCanExecuteChanged();
+        _settings.SelectionChanged += OnSettingsChanged;
     }
 
     public ObservableCollection<DiscoveredModuleRow> Results { get; } = new();
@@ -43,10 +41,20 @@ public sealed class ModuleScanViewModel : ViewModelBase
     public ICommand ScanCommand   => _scan;
     public ICommand CancelCommand => _cancel;
 
-    /// <summary>The port to sweep, owned by the port settings panel.</summary>
-    public string? PortName => _settings.PortName;
+    public string Headline
+    {
+        get
+        {
+            var ports = _settings.SelectedPorts;
 
-    public string Headline => string.IsNullOrEmpty(PortName) ? "Module scan" : $"Module scan — {PortName}";
+            return ports.Count switch
+            {
+                0 => "Module scan",
+                1 => $"Module scan — {ports[0]}",
+                _ => $"Module scan — {ports.Count} ports"
+            };
+        }
+    }
 
     public int FirstAddress
     {
@@ -58,16 +66,6 @@ public sealed class ModuleScanViewModel : ViewModelBase
     {
         get => _lastAddress;
         set => SetProperty(ref _lastAddress, Clamp(value));
-    }
-
-    /// <summary>
-    /// Sweep every standard rate instead of the configured one, for a bus whose rate is unknown. Multiplies the
-    /// scan by nine.
-    /// </summary>
-    public bool AllBaudRates
-    {
-        get => _allBaudRates;
-        set => SetProperty(ref _allBaudRates, value);
     }
 
     public int ProbeTimeoutMs
@@ -86,7 +84,7 @@ public sealed class ModuleScanViewModel : ViewModelBase
         }
     }
 
-    /// <summary>Completed fraction, 0 to 1.</summary>
+    /// <summary>Completed fraction, 0 to 1, across every port in the sweep.</summary>
     public double Progress
     {
         get => _progress;
@@ -99,21 +97,21 @@ public sealed class ModuleScanViewModel : ViewModelBase
         private set => SetProperty(ref _status, value);
     }
 
-    private bool CanScan() => _settings.IsPortSelected && _settings.IsSupportedProtocol;
+    private bool CanScan() => _settings.HasPortSelected && _settings.IsSupportedProtocol;
 
     private async Task ScanAsync()
     {
-        var portName = PortName;
-
-        if (string.IsNullOrEmpty(portName))
-        {
-            Status = "No port selected.";
-            return;
-        }
-
         if (!_settings.IsSupportedProtocol)
         {
             Status = _settings.ProtocolWarning;
+            return;
+        }
+
+        var ports = _settings.SelectedPorts;
+
+        if (ports.Count == 0)
+        {
+            Status = "No port ticked.";
             return;
         }
 
@@ -121,8 +119,9 @@ public sealed class ModuleScanViewModel : ViewModelBase
         {
             FirstAddress   = Math.Min(FirstAddress, LastAddress),
             LastAddress    = Math.Max(FirstAddress, LastAddress),
-            BaudRates      = AllBaudRates ? _settings.BaudRateOptions : new[] { _settings.BaudRate },
-            Checksum       = _settings.Checksum,
+            BaudRates      = _settings.SelectedBaudRates,
+            Formats        = _settings.SelectedFormats,
+            ChecksumModes  = _settings.SelectedChecksums,
             ProbeTimeoutMs = ProbeTimeoutMs
         };
 
@@ -134,34 +133,51 @@ public sealed class ModuleScanViewModel : ViewModelBase
         // Constructed here, on the UI thread, so reports marshal back to it.
         var progress = new Progress<ModuleScanProgress>(OnProgress);
 
-        var settings = new SerialPortSettings
-        {
-            PortName      = portName!,
-            BaudRate      = _settings.BaudRate,
-            ReadTimeoutMs = options.ProbeTimeoutMs
-        };
-
-        var opened = SerialTransportOpener.Open(settings);
-
-        if (!opened.Opened)
-        {
-            Status     = opened.Error ?? $"Could not open {portName}.";
-            IsScanning = false;
-            _cancellation.Dispose();
-            _cancellation = null;
-
-            return;
-        }
-
-        using var transport = opened.Transport!;
+        var perPort   = options.ProbeCount;
+        var total     = perPort * ports.Count;
+        var completed = 0;
+        var found     = new List<DiscoveredModule>();
+        var notes     = new List<string>();
 
         try
         {
-            var found = await new ModuleFinder(transport).ScanAsync(options, progress, _cancellation.Token);
+            foreach (var port in ports)
+            {
+                _cancellation.Token.ThrowIfCancellationRequested();
+
+                var settings = new SerialPortSettings
+                {
+                    PortName      = port,
+                    BaudRate      = options.BaudRates.FirstOrDefault(),
+                    ReadTimeoutMs = options.ProbeTimeoutMs
+                };
+
+                var opened = SerialTransportOpener.Open(settings);
+
+                if (!opened.Opened)
+                {
+                    // One unusable port does not abandon the sweep; its probes are counted as done so the bar
+                    // still reaches the end.
+                    notes.Add(opened.Error ?? $"Could not open {port}.");
+                    completed += perPort;
+
+                    continue;
+                }
+
+                using (var transport = opened.Transport!)
+                {
+                    if (opened.Note != null)
+                        notes.Add(opened.Note);
+
+                    found.AddRange(await new ModuleFinder(transport)
+                        .ScanAsync(options, progress, _cancellation.Token, completed, total));
+                }
+
+                completed += perPort;
+            }
 
             // Results appear live as each probe reports, so the list is normally already complete here. The
-            // rebuild is a safety net for a report that did not make it back to the UI thread — cheap, and it
-            // keeps the final list authoritative rather than merely probable.
+            // rebuild is a safety net for a report that did not make it back to the UI thread.
             if (Results.Count != found.Count)
             {
                 Results.Clear();
@@ -172,16 +188,15 @@ public sealed class ModuleScanViewModel : ViewModelBase
 
             Progress = 1;
 
+            var scope   = ports.Count == 1 ? ports[0] : $"{ports.Count} ports";
             var outcome = found.Count switch
             {
-                0 => $"No modules answered on {portName} across {options.ProbeCount:N0} probes.",
-                1 => $"1 module found on {portName}.",
-                _ => $"{found.Count} modules found on {portName}."
+                0 => $"No modules answered on {scope} across {total:N0} probes.",
+                1 => $"1 module found on {scope}.",
+                _ => $"{found.Count} modules found on {scope}."
             };
 
-            // A port that only opened through the fallback route still works, but the reason is worth keeping
-            // in front of the user — it explains why changing the baud rate may not take effect.
-            Status = opened.Note is null ? outcome : $"{outcome} {opened.Note}";
+            Status = notes.Count == 0 ? outcome : $"{outcome} {string.Join(" ", notes.Distinct())}";
         }
         catch (OperationCanceledException)
         {
@@ -206,9 +221,9 @@ public sealed class ModuleScanViewModel : ViewModelBase
         if (report.Found != null)
             Results.Add(new DiscoveredModuleRow(report.Found));
 
-        Status = $"Probing {report.BaudRate:N0} bps, address {report.Address:X2} — " +
-                 $"{report.Completed:N0} of {report.Total:N0}" +
-                 (report.Checksum ? ", checksum on" : string.Empty);
+        Status = $"{report.PortName} · {report.BaudRate:N0} bps · {report.Format.Label}" +
+                 (report.Checksum ? " · checksum" : string.Empty) +
+                 $" · address {report.Address:X2} — {report.Completed:N0} of {report.Total:N0}";
     }
 
     private void Cancel()
@@ -217,12 +232,8 @@ public sealed class ModuleScanViewModel : ViewModelBase
         Status = "Cancelling…";
     }
 
-    private void OnSettingsChanged(object? sender, PropertyChangedEventArgs e)
+    private void OnSettingsChanged(object? sender, EventArgs e)
     {
-        if (e.PropertyName != nameof(PortSettingsViewModel.PortName))
-            return;
-
-        RaisePropertyChanged(nameof(PortName));
         RaisePropertyChanged(nameof(Headline));
         _scan.RaiseCanExecuteChanged();
     }
