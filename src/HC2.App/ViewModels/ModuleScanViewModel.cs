@@ -133,48 +133,43 @@ public sealed class ModuleScanViewModel : ViewModelBase
         // Constructed here, on the UI thread, so reports marshal back to it.
         var progress = new Progress<ModuleScanProgress>(OnProgress);
 
-        var perPort   = options.ProbeCount;
-        var total     = perPort * ports.Count;
-        var completed = 0;
-        var found     = new List<DiscoveredModule>();
-        var notes     = new List<string>();
+        var notes      = new List<string>();
+        var transports = new List<ISerialTransport>();
+        var found      = new List<DiscoveredModule>();
 
         try
         {
+            // Every ticked port is opened once and stays open for the whole sweep. Address is the outer loop,
+            // so ports are revisited at every address — opening and closing each time would dominate the scan
+            // and toggle DTR/RTS on each module repeatedly.
             foreach (var port in ports)
             {
-                _cancellation.Token.ThrowIfCancellationRequested();
-
-                var settings = new SerialPortSettings
+                var opened = SerialTransportOpener.Open(new SerialPortSettings
                 {
                     PortName      = port,
                     BaudRate      = options.BaudRates.FirstOrDefault(),
                     ReadTimeoutMs = options.ProbeTimeoutMs
-                };
-
-                var opened = SerialTransportOpener.Open(settings);
+                });
 
                 if (!opened.Opened)
                 {
-                    // One unusable port does not abandon the sweep; its probes are counted as done so the bar
-                    // still reaches the end.
                     notes.Add(opened.Error ?? $"Could not open {port}.");
-                    completed += perPort;
-
                     continue;
                 }
 
-                using (var transport = opened.Transport!)
-                {
-                    if (opened.Note != null)
-                        notes.Add(opened.Note);
+                transports.Add(opened.Transport!);
 
-                    found.AddRange(await new ModuleFinder(transport)
-                        .ScanAsync(options, progress, _cancellation.Token, completed, total));
-                }
-
-                completed += perPort;
+                if (opened.Note != null)
+                    notes.Add(opened.Note);
             }
+
+            if (transports.Count == 0)
+            {
+                Status = notes.Count > 0 ? string.Join(" ", notes) : "No port could be opened.";
+                return;
+            }
+
+            found.AddRange(await new ModuleFinder(transports).ScanAsync(options, progress, _cancellation.Token));
 
             // Results appear live as each probe reports, so the list is normally already complete here. The
             // rebuild is a safety net for a report that did not make it back to the UI thread.
@@ -188,10 +183,10 @@ public sealed class ModuleScanViewModel : ViewModelBase
 
             Progress = 1;
 
-            var scope   = ports.Count == 1 ? ports[0] : $"{ports.Count} ports";
+            var scope   = transports.Count == 1 ? transports[0].Settings.PortName : $"{transports.Count} ports";
             var outcome = found.Count switch
             {
-                0 => $"No modules answered on {scope} across {total:N0} probes.",
+                0 => $"No modules answered on {scope} across {options.ProbeCount(transports.Count):N0} probes.",
                 1 => $"1 module found on {scope}.",
                 _ => $"{found.Count} modules found on {scope}."
             };
@@ -208,6 +203,9 @@ public sealed class ModuleScanViewModel : ViewModelBase
         }
         finally
         {
+            foreach (var transport in transports)
+                transport.Dispose();
+
             IsScanning = false;
             _cancellation.Dispose();
             _cancellation = null;
