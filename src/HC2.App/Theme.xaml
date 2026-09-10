@@ -50,19 +50,24 @@
     <sys:Double x:Key="FontSizeSmall">12</sys:Double>
     <sys:Double x:Key="FontSizeTitle">14</sys:Double>
 
-    <!-- The ribbon tab and the options under it are one control to the eye, so they share a size. -->
+    <!-- The ribbon: the tab names lead, the tick boxes under them follow a step down. -->
+    <sys:Double x:Key="FontSizeRibbonTab">17</sys:Double>
     <sys:Double x:Key="FontSizeRibbon">15</sys:Double>
 
+    <!--
+        Deliberately sets no font size or family. An implicit TextBlock style also reaches the TextBlock
+        a ContentPresenter builds for string content, and a style setter beats an inherited value — so a
+        FontSize here silently overrode every FontSize set on a TabItem, CheckBox or column header, and
+        those settings did nothing at all. Size and family come from the Window instead, by inheritance,
+        which any control is then free to override for its own content.
+
+        Formatting mode is likewise left at WPF's default of Ideal, which is what the Hardware Controller
+        uses. Display was tried here and measured worse: it snaps stems and advance widths to whole
+        pixels, thinning the strokes and tightening the spacing.
+    -->
     <Style TargetType="TextBlock">
-        <Setter Property="FontFamily"          Value="{StaticResource UiFont}" />
-        <Setter Property="FontSize"            Value="{StaticResource FontSizeBody}" />
         <Setter Property="Foreground"          Value="{StaticResource Text}" />
         <Setter Property="VerticalAlignment"   Value="Center" />
-        <!-- Formatting mode is left at WPF's default of Ideal, which is what the Hardware Controller
-             uses. Display was tried here and measured worse: it snaps stems and advance widths to
-             whole pixels, thinning the strokes and tightening the spacing. Ideal's sub-pixel
-             positioning lays down more ClearType coverage, and that is what makes the older tool's
-             text look fuller at a smaller size. -->
     </Style>
 
     <!-- A panel's name. Sits above the panel it names, so it needs no chrome of its own. -->
@@ -419,7 +424,7 @@
 
     <Style TargetType="TabItem">
         <Setter Property="FontFamily"           Value="{StaticResource UiFont}" />
-        <Setter Property="FontSize"             Value="{StaticResource FontSizeRibbon}" />
+        <Setter Property="FontSize"             Value="{StaticResource FontSizeRibbonTab}" />
         <Setter Property="Foreground"           Value="{StaticResource TextMuted}" />
         <Setter Property="Cursor"               Value="Hand" />
         <Setter Property="SnapsToDevicePixels"  Value="True" />
@@ -457,7 +462,7 @@
     -->
     <Style TargetType="DataGridColumnHeader">
         <Setter Property="FontFamily"                Value="{StaticResource UiFont}" />
-        <Setter Property="FontSize"                  Value="11" />
+        <Setter Property="FontSize"                  Value="{StaticResource FontSizeBody}" />
         <Setter Property="FontWeight"                Value="SemiBold" />
         <Setter Property="Foreground"                Value="{StaticResource TextMuted}" />
         <Setter Property="Background"                Value="{StaticResource SurfaceSunken}" />
