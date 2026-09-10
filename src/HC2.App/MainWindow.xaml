@@ -3,29 +3,16 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:conv="clr-namespace:HC2.App.Converters"
         Title="HC2 — COM Port Explorer"
-        Height="720" Width="1160"
-        MinHeight="500" MinWidth="860"
+        Height="760" Width="1200"
+        MinHeight="540" MinWidth="900"
         Background="{StaticResource SurfaceAlt}"
+        UseLayoutRounding="True"
         WindowStartupLocation="CenterScreen">
 
     <Window.Resources>
         <conv:ZeroToVisibilityConverter x:Key="ZeroToVisibility" />
         <conv:InverseBooleanConverter x:Key="Not" />
         <conv:EnumDescriptionConverter x:Key="EnumDescription" />
-        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
-
-        <Style x:Key="PanelTitle" TargetType="TextBlock">
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-        </Style>
-
-        <Style x:Key="FieldLabel" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Margin" Value="0,0,6,0" />
-        </Style>
 
         <!-- One template for every ribbon tab: each option is a tick that widens the search. -->
         <DataTemplate x:Key="OptionTemplate">
@@ -33,8 +20,7 @@
                       IsChecked="{Binding IsSelected}"
                       ToolTip="{Binding Description}"
                       VerticalAlignment="Center"
-                      VerticalContentAlignment="Center"
-                      Margin="0,0,18,0" />
+                      Margin="0,0,20,0" />
         </DataTemplate>
 
         <ItemsPanelTemplate x:Key="OptionPanel">
@@ -42,383 +28,375 @@
         </ItemsPanelTemplate>
 
         <Style x:Key="RibbonScroll" TargetType="ScrollViewer">
-            <Setter Property="VerticalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="VerticalScrollBarVisibility"   Value="Disabled" />
             <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
-            <Setter Property="Height" Value="30" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Margin" Value="0,4,0,0" />
-        </Style>
-
-        <Style x:Key="SmallInput" TargetType="TextBox">
-            <Setter Property="Width" Value="52" />
-            <Setter Property="Padding" Value="4,3" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Height"                        Value="42" />
+            <Setter Property="VerticalAlignment"             Value="Center" />
+            <Setter Property="Margin"                        Value="0,8,0,0" />
         </Style>
     </Window.Resources>
 
-    <Grid Margin="16">
+    <Grid Margin="20,18,20,14">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="*" MinHeight="180" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" MinHeight="200" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Port settings: the search space, plus the range a scan covers -->
-        <Border Grid.Row="0"
-                Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}"
-                BorderThickness="1"
-                CornerRadius="6"
-                Padding="16,10,16,12"
-                Margin="0,0,0,12">
-            <StackPanel>
-                <DockPanel Margin="0,0,0,6">
-                    <Button DockPanel.Dock="Right" Content="Refresh" Command="{Binding RefreshCommand}" />
+        <TextBlock Grid.Row="0"
+                   Text="Port Settings"
+                   Style="{StaticResource PanelTitle}"
+                   Margin="2,0,0,8" />
 
-                    <CheckBox DockPanel.Dock="Right"
-                              Content="Auto-refresh on device change"
-                              IsChecked="{Binding AutoRefresh}"
-                              VerticalAlignment="Center"
-                              Margin="0,0,16,0" />
+        <Border Grid.Row="1"
+                Style="{StaticResource Card}"
+                Padding="18,10,18,14"
+                Margin="0,0,0,18">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
 
-                    <TextBlock Text="Port Settings" Style="{StaticResource PanelTitle}" />
-                </DockPanel>
+                <!-- Each tab is one dimension of the search. Ticks are cumulative: a scan tries every
+                     combination of the ticked ports, rates, checksum modes and framings. -->
+                <TabControl Grid.Column="0" DataContext="{Binding PortSettings}">
+                    <TabItem Header="COM Port">
+                        <ScrollViewer Style="{StaticResource RibbonScroll}">
+                            <ItemsControl ItemsSource="{Binding ComPorts}"
+                                          ItemTemplate="{StaticResource OptionTemplate}"
+                                          ItemsPanel="{StaticResource OptionPanel}" />
+                        </ScrollViewer>
+                    </TabItem>
 
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
+                    <TabItem Header="Baudrate">
+                        <ScrollViewer Style="{StaticResource RibbonScroll}">
+                            <ItemsControl ItemsSource="{Binding BaudRates}"
+                                          ItemTemplate="{StaticResource OptionTemplate}"
+                                          ItemsPanel="{StaticResource OptionPanel}" />
+                        </ScrollViewer>
+                    </TabItem>
 
-                    <!-- Each tab is one dimension of the search. Ticks are cumulative: a scan tries every
-                         combination of the ticked ports, rates, checksum modes and framings. -->
-                    <TabControl Grid.Column="0"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Padding="0"
-                                DataContext="{Binding PortSettings}">
-                        <TabItem Header="COM Port">
-                            <ScrollViewer Style="{StaticResource RibbonScroll}">
-                                <ItemsControl ItemsSource="{Binding ComPorts}"
-                                              ItemTemplate="{StaticResource OptionTemplate}"
-                                              ItemsPanel="{StaticResource OptionPanel}" />
-                            </ScrollViewer>
-                        </TabItem>
+                    <TabItem Header="Checksum">
+                        <ScrollViewer Style="{StaticResource RibbonScroll}"
+                                      ToolTip="HC2's checksum is not yet verified against hardware — treat a hit with it enabled as provisional.">
+                            <ItemsControl ItemsSource="{Binding ChecksumModes}"
+                                          ItemTemplate="{StaticResource OptionTemplate}"
+                                          ItemsPanel="{StaticResource OptionPanel}" />
+                        </ScrollViewer>
+                    </TabItem>
 
-                        <TabItem Header="Baudrate">
-                            <ScrollViewer Style="{StaticResource RibbonScroll}">
-                                <ItemsControl ItemsSource="{Binding BaudRates}"
-                                              ItemTemplate="{StaticResource OptionTemplate}"
-                                              ItemsPanel="{StaticResource OptionPanel}" />
-                            </ScrollViewer>
-                        </TabItem>
+                    <TabItem Header="Format">
+                        <ScrollViewer Style="{StaticResource RibbonScroll}">
+                            <ItemsControl ItemsSource="{Binding Formats}"
+                                          ItemTemplate="{StaticResource OptionTemplate}"
+                                          ItemsPanel="{StaticResource OptionPanel}" />
+                        </ScrollViewer>
+                    </TabItem>
 
-                        <TabItem Header="Checksum">
-                            <ScrollViewer Style="{StaticResource RibbonScroll}"
-                                          ToolTip="HC2's checksum is not yet verified against hardware — treat a hit with it enabled as provisional.">
-                                <ItemsControl ItemsSource="{Binding ChecksumModes}"
-                                              ItemTemplate="{StaticResource OptionTemplate}"
-                                              ItemsPanel="{StaticResource OptionPanel}" />
-                            </ScrollViewer>
-                        </TabItem>
+                    <TabItem Header="Protocol">
+                        <ScrollViewer Style="{StaticResource RibbonScroll}">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <ComboBox ItemsSource="{Binding ProtocolOptions}"
+                                          SelectedItem="{Binding Protocol}"
+                                          Width="130"
+                                          Margin="0,0,14,0">
+                                    <ComboBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding Converter={StaticResource EnumDescription}}" />
+                                        </DataTemplate>
+                                    </ComboBox.ItemTemplate>
 
-                        <TabItem Header="Format">
-                            <ScrollViewer Style="{StaticResource RibbonScroll}">
-                                <ItemsControl ItemsSource="{Binding Formats}"
-                                              ItemTemplate="{StaticResource OptionTemplate}"
-                                              ItemsPanel="{StaticResource OptionPanel}" />
-                            </ScrollViewer>
-                        </TabItem>
+                                    <!-- Without this the item reports its enum member name to
+                                         accessibility tools while showing the readable one. -->
+                                    <ComboBox.ItemContainerStyle>
+                                        <Style TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
+                                            <Setter Property="AutomationProperties.Name"
+                                                    Value="{Binding Converter={StaticResource EnumDescription}}" />
+                                        </Style>
+                                    </ComboBox.ItemContainerStyle>
+                                </ComboBox>
 
-                        <TabItem Header="Protocol">
-                            <ScrollViewer Style="{StaticResource RibbonScroll}">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <ComboBox ItemsSource="{Binding ProtocolOptions}"
-                                              SelectedItem="{Binding Protocol}"
-                                              Width="118"
-                                              VerticalContentAlignment="Center"
-                                              Margin="0,0,14,0">
-                                        <ComboBox.ItemTemplate>
-                                            <DataTemplate>
-                                                <TextBlock Text="{Binding Converter={StaticResource EnumDescription}}" />
-                                            </DataTemplate>
-                                        </ComboBox.ItemTemplate>
+                                <!-- Visibility comes only from the style: a local value beats a style
+                                     trigger, and the warning would then never hide. -->
+                                <Border Padding="10,4" CornerRadius="5" Background="#FEF6EE">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsSupportedProtocol}" Value="False">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
 
-                                        <!-- Without this the item reports its enum member name to
-                                             accessibility tools while showing the readable one. -->
-                                        <ComboBox.ItemContainerStyle>
-                                            <Style TargetType="ComboBoxItem">
-                                                <Setter Property="AutomationProperties.Name"
-                                                        Value="{Binding Converter={StaticResource EnumDescription}}" />
-                                            </Style>
-                                        </ComboBox.ItemContainerStyle>
-                                    </ComboBox>
+                                    <TextBlock Text="{Binding ProtocolWarning}"
+                                               Style="{StaticResource Caption}"
+                                               Foreground="{StaticResource Busy}"
+                                               TextWrapping="NoWrap" />
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </TabItem>
+                </TabControl>
 
-                                    <!-- Visibility comes only from the style: a local value beats a style
-                                         trigger, and the warning would then never hide. -->
-                                    <TextBlock Text="{Binding ProtocolWarning}" TextWrapping="NoWrap">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock" BasedOn="{StaticResource Caption}">
-                                                <Setter Property="Foreground" Value="{StaticResource Busy}" />
-                                                <Setter Property="Visibility" Value="Collapsed" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsSupportedProtocol}" Value="False">
-                                                        <Setter Property="Visibility" Value="Visible" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </StackPanel>
-                            </ScrollViewer>
-                        </TabItem>
-                    </TabControl>
+                <Border Grid.Column="1"
+                        BorderBrush="{StaticResource Border}"
+                        BorderThickness="1,0,0,0"
+                        Margin="18,6,0,0" />
 
-                    <Border Grid.Column="1"
-                            BorderBrush="{StaticResource Border}"
-                            BorderThickness="1,0,0,0"
-                            Margin="14,4,0,0" />
+                <!-- The range a scan walks, kept beside the ribbons rather than inside them: it is not a
+                     dimension of the search, it is how far along each one the sweep runs. -->
+                <StackPanel Grid.Column="2"
+                            VerticalAlignment="Center"
+                            Margin="18,6,0,0"
+                            DataContext="{Binding Scan}"
+                            IsEnabled="{Binding IsScanning, Converter={StaticResource Not}}">
+                    <TextBlock Text="SCAN RANGE" Style="{StaticResource FieldLabel}" Margin="0,0,0,9" />
 
-                    <!-- The range a scan walks, kept beside the ribbons rather than inside them: it is not a
-                         dimension of the search, it is how far along each one the sweep runs. -->
-                    <StackPanel Grid.Column="2"
-                                VerticalAlignment="Center"
-                                Margin="14,4,0,0"
-                                DataContext="{Binding Scan}"
-                                IsEnabled="{Binding IsScanning, Converter={StaticResource Not}}">
-                        <TextBlock Text="Scan Range" Style="{StaticResource FieldLabel}" Margin="0,0,0,6" />
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- The visible labels are short, but on their own "Start" and "End" name nothing
+                             useful to a screen reader, and "Start" collides with the live-read button. -->
+                        <TextBlock Text="Start" Style="{StaticResource Caption}" Margin="0,0,7,0" />
+                        <TextBox Text="{Binding FirstAddress, UpdateSourceTrigger=PropertyChanged}"
+                                 AutomationProperties.Name="First address to scan"
+                                 Style="{StaticResource NumericInput}" Margin="0,0,14,0" />
 
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <!-- The visible labels are short, but on their own "Start" and "End" name nothing
-                                 useful to a screen reader, and "Start" collides with the live-read button. -->
-                            <TextBlock Text="Start" Style="{StaticResource FieldLabel}" />
-                            <TextBox Text="{Binding FirstAddress, UpdateSourceTrigger=PropertyChanged}"
-                                     AutomationProperties.Name="First address to scan"
-                                     Style="{StaticResource SmallInput}" Margin="0,0,14,0" />
+                        <TextBlock Text="End" Style="{StaticResource Caption}" Margin="0,0,7,0" />
+                        <TextBox Text="{Binding LastAddress, UpdateSourceTrigger=PropertyChanged}"
+                                 AutomationProperties.Name="Last address to scan"
+                                 Style="{StaticResource NumericInput}" Margin="0,0,16,0" />
 
-                            <TextBlock Text="End" Style="{StaticResource FieldLabel}" />
-                            <TextBox Text="{Binding LastAddress, UpdateSourceTrigger=PropertyChanged}"
-                                     AutomationProperties.Name="Last address to scan"
-                                     Style="{StaticResource SmallInput}" Margin="0,0,14,0" />
+                        <Border BorderBrush="{StaticResource Border}" BorderThickness="1,0,0,0"
+                                Margin="0,0,16,0" Height="22" />
 
-                            <Border BorderBrush="{StaticResource Border}" BorderThickness="1,0,0,0"
-                                    Margin="0,0,14,0" Height="20" />
-
-                            <TextBlock Text="Timeout" Style="{StaticResource FieldLabel}" />
-                            <TextBox Text="{Binding ProbeTimeoutMs, UpdateSourceTrigger=PropertyChanged}"
-                                     AutomationProperties.Name="Probe timeout in milliseconds"
-                                     Style="{StaticResource SmallInput}" />
-                        </StackPanel>
+                        <TextBlock Text="Timeout" Style="{StaticResource Caption}" Margin="0,0,7,0" />
+                        <TextBox Text="{Binding ProbeTimeoutMs, UpdateSourceTrigger=PropertyChanged}"
+                                 AutomationProperties.Name="Probe timeout in milliseconds"
+                                 Style="{StaticResource NumericInput}" />
+                        <TextBlock Text="ms" Style="{StaticResource Caption}" Margin="7,0,0,0" />
                     </StackPanel>
-                </Grid>
-            </StackPanel>
+                </StackPanel>
+            </Grid>
         </Border>
 
         <!-- Module scan and live data, side by side -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="2">
+            <!-- The results table carries eight columns and the live table four, so the split is
+                 weighted rather than even. -->
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" MinWidth="380" />
+                <ColumnDefinition Width="1.35*" MinWidth="430" />
                 <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="*" MinWidth="330" />
+                <ColumnDefinition Width="1*" MinWidth="330" />
             </Grid.ColumnDefinitions>
 
-            <Border Grid.Column="0"
-                    Background="{StaticResource Surface}"
-                    BorderBrush="{StaticResource Border}"
-                    BorderThickness="1"
-                    CornerRadius="6">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Grid.Column="0" Orientation="Horizontal" Margin="2,0,0,8">
+                <TextBlock Text="Found modules" Style="{StaticResource PanelTitle}" />
+                <TextBlock Style="{StaticResource Caption}"
+                           Margin="10,1,0,0"
+                           DataContext="{Binding Scan}"
+                           Text="{Binding Results.Count, StringFormat={}{0} found}" />
+            </StackPanel>
+
+            <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource Card}">
                 <Grid DataContext="{Binding Scan}">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0"
-                               Text="{Binding Headline}"
-                               Style="{StaticResource PanelTitle}"
-                               Margin="16,14,16,10" />
-
                     <!-- Results -->
-                    <Grid Grid.Row="1">
+                    <Grid Grid.Row="0">
                         <DataGrid ItemsSource="{Binding Results}"
-                                  SelectedItem="{Binding SelectedResult}"
-                                  AutoGenerateColumns="False"
-                                  IsReadOnly="True"
-                                  HeadersVisibility="Column"
-                                  GridLinesVisibility="Horizontal"
-                                  HorizontalGridLinesBrush="{StaticResource Border}"
-                                  BorderThickness="0"
-                                  Background="Transparent"
-                                  RowBackground="Transparent"
-                                  AlternatingRowBackground="Transparent"
-                                  SelectionMode="Single"
-                                  CanUserResizeRows="False"
-                                  RowHeight="28">
+                                  SelectedItem="{Binding SelectedResult}">
                             <DataGrid.Columns>
-                                <DataGridTextColumn Header="Port" Binding="{Binding Port}" Width="58" />
-                                <DataGridTextColumn Header="Hex" Binding="{Binding Address}" Width="46" FontWeight="SemiBold" />
-                                <DataGridTextColumn Header="Dec" Binding="{Binding AddressDecimal}" Width="46" />
-                                <DataGridTextColumn Header="Module" Binding="{Binding Model}" Width="*" MinWidth="100" />
-                                <DataGridTextColumn Header="Ch" Binding="{Binding Channels}" Width="40" />
-                                <DataGridTextColumn Header="Baud" Binding="{Binding BaudRate}" Width="76" />
-                                <DataGridTextColumn Header="Format" Binding="{Binding Format}" Width="60" />
-                                <DataGridTextColumn Header="Checksum" Binding="{Binding Checksum}" Width="78" />
+                                <!-- Widths carry the header, not just the value: "Checksum" and "Protocol"
+                                     are wider than anything in their columns. -->
+                                <DataGridTextColumn Header="Address"  Binding="{Binding Address}"   Width="64" FontWeight="SemiBold" />
+                                <DataGridTextColumn Header="Module"   Binding="{Binding Model}"     Width="*" MinWidth="100" FontWeight="SemiBold" />
+                                <DataGridTextColumn Header="COM"      Binding="{Binding Port}"      Width="58" />
+                                <DataGridTextColumn Header="Baud"     Binding="{Binding BaudRate}"  Width="56" />
+                                <DataGridTextColumn Header="Checksum" Binding="{Binding Checksum}"  Width="78" />
+                                <DataGridTextColumn Header="Format"   Binding="{Binding Format}"    Width="58" />
+                                <DataGridTextColumn Header="Protocol" Binding="{Binding Protocol}"  Width="90" />
+                                <DataGridTextColumn Header="Channels" Binding="{Binding Channels}"  Width="68" />
                             </DataGrid.Columns>
                         </DataGrid>
 
                         <TextBlock Text="No scan results yet."
                                    Style="{StaticResource Caption}"
+                                   Foreground="{StaticResource TextFaint}"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
                                    Visibility="{Binding Results.Count, Converter={StaticResource ZeroToVisibility}}" />
                     </Grid>
 
                     <!-- Progress and the controls that run a scan -->
-                    <Border Grid.Row="2"
-                            Background="{StaticResource SurfaceAlt}"
+                    <Border Grid.Row="1"
+                            Background="{StaticResource SurfaceSunken}"
                             BorderBrush="{StaticResource Border}"
                             BorderThickness="0,1,0,0"
-                            CornerRadius="0,0,5,5"
-                            Padding="16,10">
-                        <StackPanel>
-                            <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}" Margin="0,0,0,6" />
+                            CornerRadius="0,0,7,7"
+                            Padding="18,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
 
-                            <!-- Track takes the border colour, not the surface tint: the footer is already
-                                 tinted, so a SurfaceAlt track would be invisible against it. -->
-                            <ProgressBar Height="4"
-                                         Minimum="0" Maximum="1"
-                                         Value="{Binding Progress, Mode=OneWay}"
-                                         Foreground="{StaticResource Accent}"
-                                         Background="{StaticResource Border}"
-                                         BorderThickness="0"
-                                         Margin="0,0,0,10" />
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,18,0">
+                                <TextBlock Text="{Binding Status}"
+                                           Style="{StaticResource Caption}"
+                                           TextTrimming="CharacterEllipsis"
+                                           Margin="0,0,0,8" />
 
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <Button Content="Cancel"
-                                        Command="{Binding CancelCommand}"
-                                        Background="{StaticResource Bad}"
-                                        Margin="0,0,8,0"
-                                        Visibility="{Binding IsScanning, Converter={StaticResource BoolToVisibility}}" />
-
-                                <Button Content="Scan" Command="{Binding ScanCommand}" />
+                                <ProgressBar Minimum="0" Maximum="1"
+                                             Value="{Binding Progress, Mode=OneWay}" />
                             </StackPanel>
-                        </StackPanel>
+
+                            <!-- One button, two actions: it reads Scan, and Cancel while a sweep runs.
+                                 The second action takes the grey template so the button visibly stops
+                                 offering what it offered a moment ago. -->
+                            <Button Grid.Column="1"
+                                    Content="{Binding ScanLabel}"
+                                    Command="{Binding ScanCommand}"
+                                    VerticalAlignment="Center">
+                                <Button.Style>
+                                    <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsScanning}" Value="True">
+                                                <Setter Property="Template"    Value="{StaticResource SecondaryButtonTemplate}" />
+                                                <Setter Property="Background"  Value="{StaticResource SurfaceAlt}" />
+                                                <Setter Property="BorderBrush" Value="{StaticResource BorderStrong}" />
+                                                <Setter Property="Foreground"  Value="{StaticResource Text}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                            </Button>
+                        </Grid>
                     </Border>
                 </Grid>
             </Border>
 
-            <GridSplitter Grid.Column="1"
-                          Width="10"
+            <GridSplitter Grid.Row="1" Grid.Column="1"
+                          Width="14"
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Stretch"
-                          Background="Transparent"
                           ResizeBehavior="PreviousAndNext" />
 
-            <Border Grid.Column="2"
-                    Background="{StaticResource Surface}"
-                    BorderBrush="{StaticResource Border}"
-                    BorderThickness="1"
-                    CornerRadius="6">
+            <StackPanel Grid.Row="0" Grid.Column="2" Orientation="Horizontal" Margin="2,0,0,8"
+                        DataContext="{Binding Live}">
+                <TextBlock Text="Channel values" Style="{StaticResource PanelTitle}" />
+                <TextBlock Style="{StaticResource Caption}"
+                           Margin="10,1,0,0"
+                           Text="{Binding Channels.Count, StringFormat={}{0} channels}" />
+            </StackPanel>
+
+            <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource Card}">
                 <Grid DataContext="{Binding Live}">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <!-- Live toolbar -->
-                    <Grid Grid.Row="0" Margin="8,12,8,10">
+                    <Grid Grid.Row="0" Margin="18,14,18,12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <WrapPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="Channel values" Style="{StaticResource PanelTitle}" Margin="0,0,18,4" />
-
-                            <StackPanel Orientation="Horizontal" Margin="0,0,18,4">
-                                <TextBlock Text="INTERVAL ms" Style="{StaticResource FieldLabel}" />
-                                <TextBox Text="{Binding IntervalMs, UpdateSourceTrigger=PropertyChanged}"
-                                         AutomationProperties.Name="Polling interval in milliseconds"
-                                         Style="{StaticResource SmallInput}"
-                                         IsEnabled="{Binding IsRunning, Converter={StaticResource Not}}" />
-                            </StackPanel>
-
-                            <TextBlock Style="{StaticResource FieldLabel}"
-                                       Text="{Binding Cycles, StringFormat={}{0:N0} cycles}" Margin="0,0,14,4" />
-                            <TextBlock Style="{StaticResource FieldLabel}"
-                                       Text="{Binding Failures, StringFormat={}{0:N0} failed reads}" Margin="0,0,0,4" />
-                        </WrapPanel>
-
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                            <Button Content="Stop"
-                                    Command="{Binding StopCommand}"
-                                    Background="{StaticResource Bad}"
-                                    Margin="0,0,8,0"
-                                    Visibility="{Binding IsRunning, Converter={StaticResource BoolToVisibility}}" />
-
-                            <Button Content="Start" Command="{Binding StartCommand}" />
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="INTERVAL" Style="{StaticResource FieldLabel}" />
+                            <TextBox Text="{Binding IntervalMs, UpdateSourceTrigger=PropertyChanged}"
+                                     AutomationProperties.Name="Polling interval in milliseconds"
+                                     Style="{StaticResource NumericInput}"
+                                     IsEnabled="{Binding IsRunning, Converter={StaticResource Not}}" />
+                            <TextBlock Text="ms" Style="{StaticResource Caption}" Margin="7,0,0,0" />
                         </StackPanel>
+
+                        <!-- Start and Stop are the same button, the same way Scan and Cancel are. -->
+                        <Button Grid.Column="1"
+                                Content="{Binding StartLabel}"
+                                Command="{Binding StartCommand}"
+                                VerticalAlignment="Center">
+                            <Button.Style>
+                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                            <Setter Property="Template"    Value="{StaticResource SecondaryButtonTemplate}" />
+                                            <Setter Property="Background"  Value="{StaticResource SurfaceAlt}" />
+                                            <Setter Property="BorderBrush" Value="{StaticResource BorderStrong}" />
+                                            <Setter Property="Foreground"  Value="{StaticResource Text}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
                     </Grid>
 
-                    <TextBlock Grid.Row="1" Text="{Binding Status}" Style="{StaticResource Caption}" Margin="8,0,8,10" />
-
-                    <Grid Grid.Row="2">
-                        <DataGrid ItemsSource="{Binding Channels}"
-                                  AutoGenerateColumns="False"
-                                  IsReadOnly="True"
-                                  HeadersVisibility="Column"
-                                  GridLinesVisibility="Horizontal"
-                                  HorizontalGridLinesBrush="{StaticResource Border}"
-                                  BorderThickness="0"
-                                  Background="Transparent"
-                                  RowBackground="Transparent"
-                                  AlternatingRowBackground="Transparent"
-                                  SelectionMode="Single"
-                                  CanUserResizeRows="False"
-                                  RowHeight="26">
+                    <Grid Grid.Row="1">
+                        <DataGrid ItemsSource="{Binding Channels}" RowHeight="30">
                             <DataGrid.Columns>
                                 <!-- The address is already part of the module label, so it does not get a
                                      column of its own in a panel this narrow. -->
-                                <DataGridTextColumn Header="Module" Binding="{Binding ModuleLabel}" Width="*" MinWidth="110" />
-                                <DataGridTextColumn Header="Ch" Binding="{Binding Channel}" Width="44" />
+                                <DataGridTextColumn Header="Module" Binding="{Binding ModuleLabel}" Width="*" MinWidth="112" />
+                                <DataGridTextColumn Header="Ch"     Binding="{Binding Channel}"     Width="44" />
 
-                                <DataGridTextColumn Header="Value" Binding="{Binding Display}" Width="92"
-                                                    FontWeight="SemiBold">
+                                <DataGridTextColumn Header="Value" Binding="{Binding Display}" Width="96">
                                     <DataGridTextColumn.ElementStyle>
                                         <Style TargetType="TextBlock">
+                                            <Setter Property="FontFamily"          Value="{StaticResource NumericFont}" />
+                                            <Setter Property="FontWeight"          Value="SemiBold" />
                                             <Setter Property="HorizontalAlignment" Value="Right" />
-                                            <Setter Property="Margin" Value="0,0,10,0" />
+                                            <Setter Property="Margin"              Value="0,0,10,0" />
                                         </Style>
                                     </DataGridTextColumn.ElementStyle>
                                 </DataGridTextColumn>
 
-                                <DataGridTemplateColumn Header="State" Width="98">
+                                <!-- State is a pill rather than coloured text: at 12px, colour alone is
+                                     too thin a signal to read across the room. -->
+                                <DataGridTemplateColumn Header="State" Width="104">
                                     <DataGridTemplateColumn.CellTemplate>
                                         <DataTemplate>
-                                            <TextBlock ToolTip="{Binding Detail}">
-                                                <TextBlock.Style>
-                                                    <Style TargetType="TextBlock">
-                                                        <Setter Property="Text" Value="{Binding State}" />
-                                                        <Setter Property="Foreground" Value="{StaticResource TextMuted}" />
-                                                        <Setter Property="VerticalAlignment" Value="Center" />
-                                                        <Style.Triggers>
-                                                            <DataTrigger Binding="{Binding State}" Value="OK">
-                                                                <Setter Property="Foreground" Value="{StaticResource Free}" />
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding State}" Value="Under range">
-                                                                <Setter Property="Foreground" Value="{StaticResource Busy}" />
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding State}" Value="Error">
-                                                                <Setter Property="Foreground" Value="{StaticResource Bad}" />
-                                                            </DataTrigger>
-                                                        </Style.Triggers>
-                                                    </Style>
-                                                </TextBlock.Style>
-                                            </TextBlock>
+                                            <Border x:Name="Pill"
+                                                    CornerRadius="10"
+                                                    Padding="9,2"
+                                                    HorizontalAlignment="Left"
+                                                    Background="{StaticResource SurfaceHover}"
+                                                    ToolTip="{Binding Detail}">
+                                                <TextBlock x:Name="Label"
+                                                           Text="{Binding State}"
+                                                           FontSize="11"
+                                                           FontWeight="SemiBold"
+                                                           Foreground="{StaticResource TextMuted}" />
+                                            </Border>
+
+                                            <DataTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding State}" Value="OK">
+                                                    <Setter TargetName="Pill"  Property="Background" Value="#E9F6EF" />
+                                                    <Setter TargetName="Label" Property="Foreground" Value="{StaticResource Free}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding State}" Value="Under range">
+                                                    <Setter TargetName="Pill"  Property="Background" Value="#FEF3E8" />
+                                                    <Setter TargetName="Label" Property="Foreground" Value="{StaticResource Busy}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding State}" Value="Error">
+                                                    <Setter TargetName="Pill"  Property="Background" Value="#FDECEA" />
+                                                    <Setter TargetName="Label" Property="Foreground" Value="{StaticResource Bad}" />
+                                                </DataTrigger>
+                                            </DataTemplate.Triggers>
                                         </DataTemplate>
                                     </DataGridTemplateColumn.CellTemplate>
                                 </DataGridTemplateColumn>
@@ -427,86 +405,42 @@
 
                         <TextBlock Text="Run a module scan, then start reading."
                                    Style="{StaticResource Caption}"
+                                   Foreground="{StaticResource TextFaint}"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center"
                                    Visibility="{Binding Channels.Count, Converter={StaticResource ZeroToVisibility}}" />
                     </Grid>
+
+                    <!-- Read counters sit with the status line, out of the toolbar: they are an outcome
+                         of the run, not something to set before it. -->
+                    <Border Grid.Row="2"
+                            Background="{StaticResource SurfaceSunken}"
+                            BorderBrush="{StaticResource Border}"
+                            BorderThickness="0,1,0,0"
+                            CornerRadius="0,0,7,7"
+                            Padding="18,10">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right"
+                                       Style="{StaticResource Caption}"
+                                       Text="{Binding Failures, StringFormat={}{0:N0} failed}" />
+
+                            <TextBlock DockPanel.Dock="Right"
+                                       Style="{StaticResource Caption}"
+                                       Margin="0,0,16,0"
+                                       Text="{Binding Cycles, StringFormat={}{0:N0} cycles}" />
+
+                            <TextBlock Text="{Binding Status}"
+                                       Style="{StaticResource Caption}"
+                                       TextTrimming="CharacterEllipsis"
+                                       Margin="0,0,16,0" />
+                        </DockPanel>
+                    </Border>
                 </Grid>
             </Border>
         </Grid>
 
-        <!-- Selected module: read over that module's own connection, not the ribbon's -->
-        <Border Grid.Row="2"
-                Background="{StaticResource Surface}"
-                BorderBrush="{StaticResource Border}"
-                BorderThickness="1"
-                CornerRadius="6"
-                Margin="0,12,0,0"
-                DataContext="{Binding ModuleDetail}">
-            <Grid>
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="Auto" />
-                    <RowDefinition Height="Auto" />
-                </Grid.RowDefinitions>
-
-                <Grid Grid.Row="0" Margin="16,12,16,8">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Headline}" Style="{StaticResource PanelTitle}" />
-                        <TextBlock Text="{Binding Connection}" Style="{StaticResource Caption}" Margin="0,2,0,0" />
-                        <TextBlock Text="{Binding Status}" Style="{StaticResource Caption}" Margin="0,4,0,0" TextWrapping="Wrap" />
-                    </StackPanel>
-
-                    <Button Grid.Column="1"
-                            Content="Read ranges"
-                            MinWidth="110"
-                            VerticalAlignment="Top"
-                            Command="{Binding ReadCommand}" />
-                </Grid>
-
-                <DataGrid Grid.Row="1"
-                          ItemsSource="{Binding Channels}"
-                          AutoGenerateColumns="False"
-                          IsReadOnly="True"
-                          HeadersVisibility="Column"
-                          GridLinesVisibility="Horizontal"
-                          HorizontalGridLinesBrush="{StaticResource Border}"
-                          BorderThickness="0"
-                          Background="Transparent"
-                          RowBackground="Transparent"
-                          AlternatingRowBackground="Transparent"
-                          SelectionMode="Single"
-                          CanUserResizeRows="False"
-                          RowHeight="24"
-                          MaxHeight="150">
-                    <!-- Visibility only through the style: a local value beats a style trigger, so setting it
-                         here as well would pin the grid visible with nothing in it. -->
-                    <DataGrid.Style>
-                        <Style TargetType="DataGrid">
-                            <Setter Property="Visibility" Value="Visible" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding Channels.Count}" Value="0">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </DataGrid.Style>
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Ch" Binding="{Binding Channel}" Width="52" FontWeight="SemiBold" />
-                        <DataGridTextColumn Header="Type code" Binding="{Binding CodeText}" Width="90" />
-                        <DataGridTextColumn Header="Input range" Binding="{Binding Range}" Width="*" MinWidth="160" />
-                        <DataGridTextColumn Header="Span" Binding="{Binding Span}" Width="180" />
-                    </DataGrid.Columns>
-                </DataGrid>
-            </Grid>
-        </Border>
-
         <!-- Status bar -->
-        <DockPanel Grid.Row="3" Margin="2,10,2,0">
+        <DockPanel Grid.Row="3" Margin="2,14,2,0">
             <TextBlock DockPanel.Dock="Right"
                        Style="{StaticResource Caption}"
                        Text="{Binding PortSettings.ComPorts.Count, StringFormat={}{0} port(s)}" />

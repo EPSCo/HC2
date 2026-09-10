@@ -21,7 +21,7 @@ public sealed class ChannelReadingRow : ViewModelBase
 
     public string ModuleLabel { get; }
 
-    public string Address => $"{_address:X2}";
+    public string Address => _address.ToString();
 
     public int Channel { get; }
 

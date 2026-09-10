@@ -34,8 +34,7 @@ public sealed class LiveDataViewModel : ViewModelBase
 {
     private readonly ModuleScanViewModel   _scan;
     private readonly PortSettingsViewModel _settings;
-    private readonly AsyncRelayCommand     _start;
-    private readonly RelayCommand          _stop;
+    private readonly RelayCommand          _start;
     private readonly List<string>          _labels = new();
 
     private CancellationTokenSource? _cancellation;
@@ -50,8 +49,7 @@ public sealed class LiveDataViewModel : ViewModelBase
     {
         _scan     = scan;
         _settings = settings;
-        _start    = new AsyncRelayCommand(RunAsync, CanStart);
-        _stop     = new RelayCommand(Stop, () => IsRunning);
+        _start    = new RelayCommand(StartOrStop, () => IsRunning || CanStart());
 
         // Start becomes possible the moment a scan produces something to read.
         _scan.Results.CollectionChanged += OnScanResultsChanged;
@@ -60,8 +58,11 @@ public sealed class LiveDataViewModel : ViewModelBase
 
     public ObservableCollection<ChannelReadingRow> Channels { get; } = new();
 
+    /// <summary>Starts the polling loop, or stops the one running. One button drives both.</summary>
     public ICommand StartCommand => _start;
-    public ICommand StopCommand  => _stop;
+
+    /// <summary>What that button says right now.</summary>
+    public string StartLabel => IsRunning ? "Stop" : "Start";
 
     /// <summary>Delay between polling rounds. The round itself takes as long as the modules take to answer.</summary>
     public int IntervalMs
@@ -75,8 +76,11 @@ public sealed class LiveDataViewModel : ViewModelBase
         get => _isRunning;
         private set
         {
-            if (SetProperty(ref _isRunning, value))
-                _stop.RaiseCanExecuteChanged();
+            if (!SetProperty(ref _isRunning, value))
+                return;
+
+            RaisePropertyChanged(nameof(StartLabel));
+            _start.RaiseCanExecuteChanged();
         }
     }
 
@@ -101,6 +105,18 @@ public sealed class LiveDataViewModel : ViewModelBase
 
     private bool CanStart() =>
         !IsRunning && _settings.IsSupportedProtocol && _scan.Results.Any(row => row.IsRecognized);
+
+    /// <remarks>
+    /// Synchronous for the same reason as the scan button: an <see cref="AsyncRelayCommand"/> blocks
+    /// re-entry while the loop runs, and the stop half has to work exactly then.
+    /// </remarks>
+    private void StartOrStop()
+    {
+        if (IsRunning)
+            Stop();
+        else
+            _ = RunAsync();
+    }
 
     private async Task RunAsync()
     {
@@ -310,8 +326,8 @@ public sealed class LiveDataViewModel : ViewModelBase
             // The port is part of the label only when more than one is in play: two ports can carry the same
             // model at the same address, and the label is what pairs a reading with its row.
             var label = showPort
-                ? $"{entry.Settings.PortName} · {entry.Module.Model} @ {entry.Module.Address:X2}"
-                : $"{entry.Module.Model} @ {entry.Module.Address:X2}";
+                ? $"{entry.Settings.PortName} · {entry.Module.Model} @ {entry.Module.Address}"
+                : $"{entry.Module.Model} @ {entry.Module.Address}";
 
             _labels.Add(label);
 

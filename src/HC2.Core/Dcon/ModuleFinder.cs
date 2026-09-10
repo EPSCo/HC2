@@ -30,6 +30,12 @@ public sealed record DiscoveredModule
     /// <summary>Whether it answered with checksums enabled.</summary>
     public bool         Checksum   { get; init; }
 
+    /// <summary>
+    /// The protocol it was found with. Only DCON ASCII can find anything today, so the default carries
+    /// every row; the field exists so a result stays self-describing once a second protocol lands.
+    /// </summary>
+    public BusProtocol  Protocol   { get; init; } = BusProtocol.DconAscii;
+
     public bool IsRecognized => Model.HasValue;
 
     public int ChannelCount => Model.HasValue ? ModuleModelId.ChannelCount(Model.Value) : 0;

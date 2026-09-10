@@ -1,11 +1,12 @@
 using System;
 using System.ComponentModel;
 using System.Reflection;
+using HC2.Core;
 using HC2.Core.Dcon;
 
 namespace HC2.App.ViewModels;
 
-/// <summary>Display shape for one scan result — keeps hex formatting and labelling out of the XAML.</summary>
+/// <summary>Display shape for one scan result — keeps formatting and labelling out of the XAML.</summary>
 public sealed class DiscoveredModuleRow
 {
     public DiscoveredModuleRow(DiscoveredModule module) => Module = module;
@@ -18,29 +19,32 @@ public sealed class DiscoveredModuleRow
     /// <summary>The framing it answered under, e.g. <c>N,8,1</c>.</summary>
     public string Format => Module.Format.Label;
 
-    /// <summary>The address as the two hex digits every DCON command embeds.</summary>
-    public string Address => $"{Module.Address:X2}";
-
-    /// <summary>Decimal address, since module labelling in the field is usually decimal.</summary>
-    public int AddressDecimal => Module.Address;
+    /// <summary>
+    /// Decimal, and only decimal. Hex is how the address travels on the wire, but every module in the
+    /// field is labelled in decimal, so showing both invited people to read the wrong one.
+    /// </summary>
+    public int Address => Module.Address;
 
     public string Model => Module.Model.HasValue
         ? Describe(Module.Model.Value)
         : $"Unrecognized ({Module.Identifier})";
 
-    public string BaudRate => $"{Module.BaudRate:N0} bps";
+    /// <summary>Bare number: the column is headed Baud, so the unit does not need repeating on every row.</summary>
+    public string BaudRate => Module.BaudRate.ToString();
 
     public string Checksum => Module.Checksum ? "Enabled" : "Disabled";
 
     public string Channels => Module.ChannelCount > 0 ? Module.ChannelCount.ToString() : "—";
 
+    public string Protocol => Describe(Module.Protocol);
+
     public bool IsRecognized => Module.IsRecognized;
 
     /// <summary>Reads a value's <see cref="DescriptionAttribute"/>, falling back to its name.</summary>
-    private static string Describe(ModuleModel model)
+    private static string Describe<T>(T value) where T : struct, Enum
     {
-        var field = typeof(ModuleModel).GetField(model.ToString(), BindingFlags.Public | BindingFlags.Static);
+        var field = typeof(T).GetField(value.ToString(), BindingFlags.Public | BindingFlags.Static);
 
-        return field?.GetCustomAttribute<DescriptionAttribute>()?.Description ?? model.ToString();
+        return field?.GetCustomAttribute<DescriptionAttribute>()?.Description ?? value.ToString();
     }
 }

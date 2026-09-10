@@ -15,8 +15,7 @@ namespace HC2.App.ViewModels;
 public sealed class ModuleScanViewModel : ViewModelBase
 {
     private readonly PortSettingsViewModel _settings;
-    private readonly AsyncRelayCommand     _scan;
-    private readonly RelayCommand          _cancel;
+    private readonly RelayCommand          _scan;
 
     private CancellationTokenSource? _cancellation;
     private DiscoveredModuleRow?     _selectedResult;
@@ -31,8 +30,7 @@ public sealed class ModuleScanViewModel : ViewModelBase
     public ModuleScanViewModel(PortSettingsViewModel settings)
     {
         _settings = settings;
-        _scan     = new AsyncRelayCommand(ScanAsync, CanScan);
-        _cancel   = new RelayCommand(Cancel, () => IsScanning);
+        _scan     = new RelayCommand(ScanOrCancel, () => IsScanning || CanScan());
 
         _settings.SelectionChanged += OnSettingsChanged;
     }
@@ -50,23 +48,11 @@ public sealed class ModuleScanViewModel : ViewModelBase
         set => SetProperty(ref _selectedResult, value);
     }
 
-    public ICommand ScanCommand   => _scan;
-    public ICommand CancelCommand => _cancel;
+    /// <summary>Starts a sweep, or cancels the one running. One button drives both.</summary>
+    public ICommand ScanCommand => _scan;
 
-    public string Headline
-    {
-        get
-        {
-            var ports = _settings.SelectedPorts;
-
-            return ports.Count switch
-            {
-                0 => "Module scan",
-                1 => $"Module scan — {ports[0]}",
-                _ => $"Module scan — {ports.Count} ports"
-            };
-        }
-    }
+    /// <summary>What that button says right now.</summary>
+    public string ScanLabel => IsScanning ? "Cancel" : "Scan";
 
     public int FirstAddress
     {
@@ -91,8 +77,11 @@ public sealed class ModuleScanViewModel : ViewModelBase
         get => _isScanning;
         private set
         {
-            if (SetProperty(ref _isScanning, value))
-                _cancel.RaiseCanExecuteChanged();
+            if (!SetProperty(ref _isScanning, value))
+                return;
+
+            RaisePropertyChanged(nameof(ScanLabel));
+            _scan.RaiseCanExecuteChanged();
         }
     }
 
@@ -110,6 +99,19 @@ public sealed class ModuleScanViewModel : ViewModelBase
     }
 
     private bool CanScan() => _settings.HasPortSelected && _settings.IsSupportedProtocol;
+
+    /// <remarks>
+    /// Not an <see cref="AsyncRelayCommand"/>: that one refuses to re-enter while its task runs, which is
+    /// exactly when the cancel half of this button has to be clickable. <see cref="ScanAsync"/> sets
+    /// <see cref="IsScanning"/> before its first await, so the second click always lands on the cancel path.
+    /// </remarks>
+    private void ScanOrCancel()
+    {
+        if (IsScanning)
+            Cancel();
+        else
+            _ = ScanAsync();
+    }
 
     private async Task ScanAsync()
     {
@@ -233,7 +235,7 @@ public sealed class ModuleScanViewModel : ViewModelBase
 
         Status = $"{report.PortName} · {report.BaudRate:N0} bps · {report.Format.Label}" +
                  (report.Checksum ? " · checksum" : string.Empty) +
-                 $" · address {report.Address:X2} — {report.Completed:N0} of {report.Total:N0}";
+                 $" · address {report.Address} — {report.Completed:N0} of {report.Total:N0}";
     }
 
     private void Cancel()
@@ -244,7 +246,6 @@ public sealed class ModuleScanViewModel : ViewModelBase
 
     private void OnSettingsChanged(object? sender, EventArgs e)
     {
-        RaisePropertyChanged(nameof(Headline));
         _scan.RaiseCanExecuteChanged();
     }
 

@@ -1,7 +1,6 @@
 using System;
 using System.Linq;
 using System.Threading.Tasks;
-using System.Windows.Input;
 using HC2.App.Mvvm;
 using HC2.Core.Serial;
 
@@ -13,25 +12,21 @@ namespace HC2.App.ViewModels;
 /// <remarks>
 /// It no longer keeps a port list or a selected port of its own. The ribbon's COM Port tab is the one place
 /// ports are chosen, and it is multi-select — a single "selected port" could not represent two ticked ports.
+/// The list refreshes itself: once at startup and again on every device-tree change, with no button to press.
 /// </remarks>
 public sealed class MainWindowViewModel : ViewModelBase
 {
     private readonly ISerialPortScanner _scanner;
 
     private bool   _isRefreshing;
-    private bool   _autoRefresh = true;
-    private string _status      = "Ready.";
+    private string _status = "Ready.";
 
     public MainWindowViewModel(ISerialPortScanner scanner)
     {
-        _scanner       = scanner;
-        RefreshCommand = new AsyncRelayCommand(RefreshAsync);
-        Scan           = new ModuleScanViewModel(PortSettings);
-        Live           = new LiveDataViewModel(Scan, PortSettings);
-        ModuleDetail   = new ModuleDetailViewModel(Scan);
+        _scanner = scanner;
+        Scan     = new ModuleScanViewModel(PortSettings);
+        Live     = new LiveDataViewModel(Scan, PortSettings);
     }
-
-    public ICommand RefreshCommand { get; }
 
     /// <summary>Ports, baud rates, checksum modes, framings and protocol — the search space for a scan.</summary>
     public PortSettingsViewModel PortSettings { get; } = new();
@@ -42,20 +37,10 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// <summary>Continuous channel reads of whatever the last scan found.</summary>
     public LiveDataViewModel Live { get; }
 
-    /// <summary>The selected module's own configuration, read over its own connection.</summary>
-    public ModuleDetailViewModel ModuleDetail { get; }
-
     public bool IsRefreshing
     {
         get => _isRefreshing;
         private set => SetProperty(ref _isRefreshing, value);
-    }
-
-    /// <summary>Re-enumerate ports when Windows reports a device arrival or removal.</summary>
-    public bool AutoRefresh
-    {
-        get => _autoRefresh;
-        set => SetProperty(ref _autoRefresh, value);
     }
 
     public string Status
@@ -98,7 +83,7 @@ public sealed class MainWindowViewModel : ViewModelBase
     /// <summary>Called by the window when Windows signals a device-tree change.</summary>
     public void OnDeviceChanged()
     {
-        if (AutoRefresh && !IsRefreshing)
+        if (!IsRefreshing)
             _ = RefreshAsync();
     }
 }

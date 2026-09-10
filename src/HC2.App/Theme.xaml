@@ -1,0 +1,708 @@
+<!--
+    One dictionary for the whole app: palette, type scale and a template for every control the window uses.
+    Nothing here depends on a theming package — HC2 ships as a plain net48 WPF exe, so the styles are hand
+    written against the stock controls and applied implicitly by TargetType.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- ===== Palette ==========================================================================
+         Neutrals carry the interface and one blue carries the actions. Everything that is not an
+         action stays grey, so a coloured pixel always means something.
+    -->
+    <Color x:Key="AccentColor">#2D6CDF</Color>
+
+    <SolidColorBrush x:Key="Surface"        Color="#FFFFFF" />
+    <SolidColorBrush x:Key="SurfaceAlt"     Color="#F5F6F8" />
+    <SolidColorBrush x:Key="SurfaceSunken"  Color="#FAFBFC" />
+    <SolidColorBrush x:Key="SurfaceHover"   Color="#F2F4F7" />
+    <SolidColorBrush x:Key="SubtleHover"    Color="#E9ECF1" />
+    <SolidColorBrush x:Key="SubtlePressed"  Color="#DDE1E8" />
+    <SolidColorBrush x:Key="Disabled"       Color="#9BA3AE" />
+
+    <SolidColorBrush x:Key="Border"         Color="#E4E7EC" />
+    <SolidColorBrush x:Key="BorderStrong"   Color="#D3D7DE" />
+
+    <SolidColorBrush x:Key="Text"           Color="#141A21" />
+    <SolidColorBrush x:Key="TextMuted"      Color="#667085" />
+    <SolidColorBrush x:Key="TextFaint"      Color="#98A2B3" />
+    <!-- Text on a filled button, accent or disabled grey: off-white rather than pure white,
+         which glares against a saturated fill. -->
+    <SolidColorBrush x:Key="TextOnFill"     Color="#F1F5FC" />
+
+    <SolidColorBrush x:Key="Accent"         Color="{StaticResource AccentColor}" />
+    <SolidColorBrush x:Key="AccentHover"    Color="#2559BD" />
+    <SolidColorBrush x:Key="AccentPressed"  Color="#1E4A9E" />
+    <SolidColorBrush x:Key="AccentSubtle"   Color="#EDF2FE" />
+
+    <SolidColorBrush x:Key="Free"           Color="#127A45" />
+    <SolidColorBrush x:Key="Busy"           Color="#B54708" />
+    <SolidColorBrush x:Key="Bad"            Color="#B42318" />
+    <SolidColorBrush x:Key="BadHover"       Color="#981B12" />
+    <SolidColorBrush x:Key="BadPressed"     Color="#7A150E" />
+
+    <!-- ===== Type ============================================================================= -->
+    <FontFamily x:Key="UiFont">Segoe UI Variable Text, Segoe UI</FontFamily>
+    <FontFamily x:Key="NumericFont">Consolas, Cascadia Mono, Segoe UI</FontFamily>
+
+    <sys:Double x:Key="FontSizeBody">13</sys:Double>
+    <sys:Double x:Key="FontSizeSmall">12</sys:Double>
+    <sys:Double x:Key="FontSizeTitle">14</sys:Double>
+
+    <!-- The ribbon tab and the options under it are one control to the eye, so they share a size. -->
+    <sys:Double x:Key="FontSizeRibbon">15</sys:Double>
+
+    <Style TargetType="TextBlock">
+        <Setter Property="FontFamily"          Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize"            Value="{StaticResource FontSizeBody}" />
+        <Setter Property="Foreground"          Value="{StaticResource Text}" />
+        <Setter Property="VerticalAlignment"   Value="Center" />
+        <!-- Formatting mode is left at WPF's default of Ideal, which is what the Hardware Controller
+             uses. Display was tried here and measured worse: it snaps stems and advance widths to
+             whole pixels, thinning the strokes and tightening the spacing. Ideal's sub-pixel
+             positioning lays down more ClearType coverage, and that is what makes the older tool's
+             text look fuller at a smaller size. -->
+    </Style>
+
+    <!-- A panel's name. Sits above the panel it names, so it needs no chrome of its own. -->
+    <Style x:Key="PanelTitle" TargetType="TextBlock">
+        <Setter Property="FontFamily"        Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize"          Value="{StaticResource FontSizeTitle}" />
+        <Setter Property="FontWeight"        Value="SemiBold" />
+        <Setter Property="Foreground"        Value="{StaticResource Text}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- Secondary prose: status lines, counts, hints. -->
+    <Style x:Key="Caption" TargetType="TextBlock">
+        <Setter Property="FontFamily"        Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize"          Value="{StaticResource FontSizeSmall}" />
+        <Setter Property="Foreground"        Value="{StaticResource TextMuted}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- The label in front of an input. Upper case and tracked out so it reads as a label, not a value. -->
+    <Style x:Key="FieldLabel" TargetType="TextBlock">
+        <Setter Property="FontFamily"        Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize"          Value="11" />
+        <Setter Property="FontWeight"        Value="SemiBold" />
+        <Setter Property="Foreground"        Value="{StaticResource TextMuted}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin"            Value="0,0,8,0" />
+    </Style>
+
+    <Style x:Key="SectionHeader" TargetType="TextBlock" BasedOn="{StaticResource FieldLabel}">
+        <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+
+    <!-- ===== Buttons ==========================================================================
+         Same shape as the Hardware Controller's: a 4px radius, a 30px body, a filled accent primary
+         and a grey secondary. The templates are keyed as well as applied, because the scan and live
+         buttons each carry two actions and swap template when they flip to the second one.
+    -->
+    <ControlTemplate x:Key="PrimaryButtonTemplate" TargetType="Button">
+        <Border x:Name="Bd"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                CornerRadius="4"
+                SnapsToDevicePixels="True">
+            <ContentPresenter x:Name="Content"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Margin="{TemplateBinding Padding}"
+                              RecognizesAccessKey="True" />
+        </Border>
+        <ControlTemplate.Triggers>
+            <!-- Hover and press change the fill rather than the opacity: fading a button also fades
+                 its label, which reads as "disabled", not "armed". -->
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background"  Value="{StaticResource AccentHover}" />
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentHover}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="Bd" Property="Background"  Value="{StaticResource AccentPressed}" />
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource AccentPressed}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Bd"      Property="Background"  Value="{StaticResource Disabled}" />
+                <Setter TargetName="Bd"      Property="BorderBrush" Value="{StaticResource Disabled}" />
+                <Setter TargetName="Content" Property="TextElement.Foreground" Value="{StaticResource TextOnFill}" />
+                <Setter Property="Cursor" Value="Arrow" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="SecondaryButtonTemplate" TargetType="Button">
+        <Border x:Name="Bd"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="1"
+                CornerRadius="4"
+                SnapsToDevicePixels="True">
+            <ContentPresenter x:Name="Content"
+                              HorizontalAlignment="Center"
+                              VerticalAlignment="Center"
+                              Margin="{TemplateBinding Padding}"
+                              RecognizesAccessKey="True" />
+        </Border>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SubtleHover}" />
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SubtlePressed}" />
+            </Trigger>
+            <!-- A disabled button is the same dark grey slab whichever action it was showing, so a
+                 button that cannot be pressed never passes for one that can. -->
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="Bd"      Property="Background"  Value="{StaticResource Disabled}" />
+                <Setter TargetName="Bd"      Property="BorderBrush" Value="{StaticResource Disabled}" />
+                <Setter TargetName="Content" Property="TextElement.Foreground" Value="{StaticResource TextOnFill}" />
+                <Setter Property="Cursor" Value="Arrow" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <Style TargetType="Button">
+        <Setter Property="FontFamily"                  Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize"                    Value="13" />
+        <Setter Property="FontWeight"                  Value="SemiBold" />
+        <Setter Property="Padding"                     Value="18,7" />
+        <Setter Property="MinWidth"                    Value="92" />
+        <Setter Property="MinHeight"                   Value="30" />
+        <Setter Property="Background"                  Value="{StaticResource Accent}" />
+        <Setter Property="Foreground"                  Value="{StaticResource TextOnFill}" />
+        <Setter Property="BorderBrush"                 Value="{StaticResource Accent}" />
+        <Setter Property="BorderThickness"             Value="1" />
+        <Setter Property="Cursor"                      Value="Hand" />
+        <Setter Property="HorizontalContentAlignment"  Value="Center" />
+        <Setter Property="VerticalContentAlignment"    Value="Center" />
+        <Setter Property="SnapsToDevicePixels"         Value="True" />
+        <Setter Property="Template"                    Value="{StaticResource PrimaryButtonTemplate}" />
+    </Style>
+
+    <!-- The second action a button can carry — cancel a scan, stop a read. Grey, so the button is
+         plainly not offering the same thing it was a moment ago. -->
+    <Style x:Key="SecondaryButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Padding"      Value="14,7" />
+        <Setter Property="Foreground"   Value="{StaticResource Text}" />
+        <Setter Property="Background"   Value="{StaticResource SurfaceAlt}" />
+        <Setter Property="BorderBrush"  Value="{StaticResource BorderStrong}" />
+        <Setter Property="Template"     Value="{StaticResource SecondaryButtonTemplate}" />
+    </Style>
+
+    <!-- ===== Text input ======================================================================= -->
+    <Style TargetType="TextBox">
+        <Setter Property="FontFamily"                Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize"                  Value="{StaticResource FontSizeBody}" />
+        <Setter Property="Foreground"                Value="{StaticResource Text}" />
+        <Setter Property="Background"                Value="{StaticResource Surface}" />
+        <Setter Property="BorderBrush"               Value="{StaticResource BorderStrong}" />
+        <Setter Property="CaretBrush"                Value="{StaticResource Text}" />
+        <Setter Property="SelectionBrush"            Value="{StaticResource Accent}" />
+        <Setter Property="Padding"                   Value="8,5" />
+        <Setter Property="MinHeight"                 Value="30" />
+        <Setter Property="VerticalContentAlignment"  Value="Center" />
+        <Setter Property="SnapsToDevicePixels"       Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TextBox">
+                    <Border x:Name="Chrome"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="6">
+                        <ScrollViewer x:Name="PART_ContentHost"
+                                      Margin="{TemplateBinding Padding}"
+                                      VerticalAlignment="Center"
+                                      Focusable="False"
+                                      HorizontalScrollBarVisibility="Hidden"
+                                      VerticalScrollBarVisibility="Hidden" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource TextFaint}" />
+                        </Trigger>
+                        <!-- Focus thickens the ring by drawing it in the accent twice over, rather than
+                             growing the border: a 2px border would shift the text by a pixel. -->
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource Accent}" />
+                            <Setter TargetName="Chrome" Property="Effect">
+                                <Setter.Value>
+                                    <DropShadowEffect Color="{StaticResource AccentColor}"
+                                                      BlurRadius="6" ShadowDepth="0" Opacity="0.35" />
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Chrome" Property="Background"  Value="{StaticResource SurfaceAlt}" />
+                            <Setter Property="Foreground" Value="{StaticResource TextFaint}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Numbers the user types: addresses, timeouts, intervals. Tabular digits keep the boxes from
+         jittering as the value changes. -->
+    <Style x:Key="NumericInput" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
+        <Setter Property="Width"                       Value="62" />
+        <Setter Property="Padding"                     Value="6,4" />
+        <Setter Property="MinHeight"                   Value="28" />
+        <Setter Property="HorizontalContentAlignment"  Value="Center" />
+    </Style>
+
+    <!-- ===== CheckBox =========================================================================
+         Left on the stock WPF template, the way the Hardware Controller has it: a white square
+         with a dark tick. The ribbons are made almost entirely of these, and a filled accent box
+         at that count reads as a wall of blue rather than as a set of options.
+    -->
+    <Style TargetType="CheckBox">
+        <Setter Property="FontFamily"                 Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize"                   Value="{StaticResource FontSizeRibbon}" />
+        <Setter Property="Foreground"                 Value="{StaticResource Text}" />
+        <Setter Property="VerticalAlignment"          Value="Center" />
+        <Setter Property="VerticalContentAlignment"   Value="Center" />
+        <Setter Property="Cursor"                     Value="Hand" />
+    </Style>
+
+    <!-- ===== ComboBox ========================================================================= -->
+    <ControlTemplate x:Key="ComboToggle" TargetType="ToggleButton">
+        <Border x:Name="Chrome"
+                Background="{StaticResource Surface}"
+                BorderBrush="{StaticResource BorderStrong}"
+                BorderThickness="1"
+                CornerRadius="6" />
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource TextFaint}" />
+            </Trigger>
+            <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource Accent}" />
+            </Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <Style TargetType="ComboBox">
+        <Setter Property="FontFamily"                Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize"                  Value="{StaticResource FontSizeBody}" />
+        <Setter Property="Foreground"                Value="{StaticResource Text}" />
+        <Setter Property="MinHeight"                 Value="30" />
+        <Setter Property="Padding"                   Value="10,0" />
+        <Setter Property="Cursor"                    Value="Hand" />
+        <Setter Property="VerticalContentAlignment"  Value="Center" />
+        <Setter Property="SnapsToDevicePixels"       Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBox">
+                    <Grid>
+                        <ToggleButton Focusable="False"
+                                      Template="{StaticResource ComboToggle}"
+                                      IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}" />
+
+                        <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
+                                          ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                          Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="Left"
+                                          VerticalAlignment="Center"
+                                          IsHitTestVisible="False" />
+
+                        <!-- A chevron drawn as geometry: the Marlett/Segoe glyph shifts between the
+                             Windows builds this runs on. -->
+                        <Path Data="M 0,0 L 4,4 L 8,0"
+                              Stroke="{StaticResource TextMuted}"
+                              StrokeThickness="1.4"
+                              StrokeStartLineCap="Round"
+                              StrokeEndLineCap="Round"
+                              StrokeLineJoin="Round"
+                              HorizontalAlignment="Right"
+                              VerticalAlignment="Center"
+                              Margin="0,0,11,0"
+                              IsHitTestVisible="False" />
+
+                        <Popup x:Name="PART_Popup"
+                               AllowsTransparency="True"
+                               Placement="Bottom"
+                               VerticalOffset="4"
+                               Focusable="False"
+                               PopupAnimation="Fade"
+                               IsOpen="{TemplateBinding IsDropDownOpen}">
+                            <Border Background="{StaticResource Surface}"
+                                    BorderBrush="{StaticResource Border}"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Padding="4"
+                                    MinWidth="{TemplateBinding ActualWidth}"
+                                    MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="#101828" BlurRadius="16" ShadowDepth="3" Opacity="0.14" />
+                                </Border.Effect>
+                                <ScrollViewer>
+                                    <ItemsPresenter />
+                                </ScrollViewer>
+                            </Border>
+                        </Popup>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="ComboBoxItem">
+        <Setter Property="FontFamily"  Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize"    Value="{StaticResource FontSizeBody}" />
+        <Setter Property="Foreground"  Value="{StaticResource Text}" />
+        <Setter Property="Padding"     Value="10,6" />
+        <Setter Property="Cursor"      Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border x:Name="Chrome"
+                            Background="Transparent"
+                            CornerRadius="4"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource SurfaceHover}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource AccentSubtle}" />
+                            <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ===== Tabs =============================================================================
+         Underline tabs rather than folder tabs: the ribbon sits inside a panel that already has a
+         border, and a second boxed outline around the tab strip reads as clutter.
+    -->
+    <Style TargetType="TabControl">
+        <Setter Property="Background"      Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding"         Value="0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabControl">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0"
+                                BorderBrush="{StaticResource Border}"
+                                BorderThickness="0,0,0,1">
+                            <TabPanel IsItemsHost="True" Panel.ZIndex="1" Margin="0,0,0,-1" />
+                        </Border>
+
+                        <!-- The name matters: TabControl's automation peer finds the selected tab's
+                             content by looking up PART_SelectedContentHost. Without it the whole ribbon
+                             (every tick box and the protocol combo) is missing from the automation
+                             tree, so screen readers and UI tests cannot see it. -->
+                        <ContentPresenter x:Name="PART_SelectedContentHost"
+                                          Grid.Row="1"
+                                          ContentSource="SelectedContent" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="TabItem">
+        <Setter Property="FontFamily"           Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize"             Value="{StaticResource FontSizeRibbon}" />
+        <Setter Property="Foreground"           Value="{StaticResource TextMuted}" />
+        <Setter Property="Cursor"               Value="Hand" />
+        <Setter Property="SnapsToDevicePixels"  Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="TabItem">
+                    <Border x:Name="Chrome"
+                            Background="Transparent"
+                            BorderBrush="Transparent"
+                            BorderThickness="0,0,0,3"
+                            Padding="12,7">
+                        <ContentPresenter x:Name="Label"
+                                          ContentSource="Header"
+                                          HorizontalAlignment="Center"
+                                          VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Foreground" Value="{StaticResource Text}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource Accent}" />
+                            <Setter Property="Foreground" Value="{StaticResource Accent}" />
+                            <Setter Property="FontWeight" Value="SemiBold" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ===== Data grids =======================================================================
+         Rows are separated by a hairline only; no vertical rules, no zebra striping. A table this
+         narrow reads better as columns of text than as a grid of cells.
+    -->
+    <Style TargetType="DataGridColumnHeader">
+        <Setter Property="FontFamily"                Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize"                  Value="11" />
+        <Setter Property="FontWeight"                Value="SemiBold" />
+        <Setter Property="Foreground"                Value="{StaticResource TextMuted}" />
+        <Setter Property="Background"                Value="{StaticResource SurfaceSunken}" />
+        <Setter Property="Padding"                   Value="7,8" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="VerticalContentAlignment"  Value="Center" />
+        <Setter Property="SeparatorBrush"            Value="Transparent" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGridColumnHeader">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{StaticResource Border}"
+                            BorderThickness="0,0,0,1"
+                            Padding="{TemplateBinding Padding}">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="DataGridRow">
+        <Setter Property="Background"           Value="Transparent" />
+        <Setter Property="Foreground"           Value="{StaticResource Text}" />
+        <Setter Property="FontFamily"           Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize"             Value="{StaticResource FontSizeBody}" />
+        <Setter Property="SnapsToDevicePixels"  Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGridRow">
+                    <Border x:Name="Chrome"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{StaticResource Border}"
+                            BorderThickness="0,0,0,1">
+                        <!-- The selected row is marked by a bar in the gutter as well as a tint, so
+                             the selection survives a colour-blind eye and a washed-out panel. -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="3" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Rectangle x:Name="Marker" Grid.Column="0" Fill="Transparent" />
+                            <DataGridCellsPresenter Grid.Column="1"
+                                                    VerticalAlignment="Center"
+                                                    ItemsPanel="{TemplateBinding ItemsPanel}" />
+                        </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource SurfaceHover}" />
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource AccentSubtle}" />
+                            <Setter TargetName="Marker" Property="Fill"       Value="{StaticResource Accent}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="DataGridCell">
+        <Setter Property="Background"       Value="Transparent" />
+        <Setter Property="BorderThickness"  Value="0" />
+        <Setter Property="Foreground"       Value="{StaticResource Text}" />
+        <Setter Property="Padding"          Value="7,0" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DataGridCell">
+                    <Border Background="Transparent" Padding="{TemplateBinding Padding}">
+                        <ContentPresenter VerticalAlignment="Center" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="DataGrid">
+        <Setter Property="Background"                    Value="Transparent" />
+        <Setter Property="BorderThickness"               Value="0" />
+        <Setter Property="RowBackground"                 Value="Transparent" />
+        <Setter Property="AlternatingRowBackground"      Value="Transparent" />
+        <Setter Property="GridLinesVisibility"           Value="None" />
+        <Setter Property="HeadersVisibility"             Value="Column" />
+        <Setter Property="AutoGenerateColumns"           Value="False" />
+        <Setter Property="IsReadOnly"                    Value="True" />
+        <Setter Property="SelectionMode"                 Value="Single" />
+        <Setter Property="SelectionUnit"                 Value="FullRow" />
+        <Setter Property="CanUserResizeRows"             Value="False" />
+        <Setter Property="CanUserAddRows"                Value="False" />
+        <Setter Property="RowHeight"                     Value="32" />
+        <Setter Property="ColumnHeaderHeight"            Value="34" />
+        <Setter Property="EnableRowVirtualization"       Value="True" />
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+        <Setter Property="FocusVisualStyle"              Value="{x:Null}" />
+    </Style>
+
+    <!-- ===== Progress ========================================================================= -->
+    <Style TargetType="ProgressBar">
+        <Setter Property="Height"          Value="6" />
+        <Setter Property="Foreground"      Value="{StaticResource Accent}" />
+        <Setter Property="Background"      Value="{StaticResource Border}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ProgressBar">
+                    <Border Background="{TemplateBinding Background}" CornerRadius="3" ClipToBounds="True">
+                        <Grid>
+                            <Rectangle x:Name="PART_Track" Fill="Transparent" />
+                            <Rectangle x:Name="PART_Indicator"
+                                       Fill="{TemplateBinding Foreground}"
+                                       RadiusX="3" RadiusY="3"
+                                       HorizontalAlignment="Left" />
+                        </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ===== Scroll bars ======================================================================
+         Slim, and the thumb is the only visible part: a full track would frame every list on screen.
+    -->
+    <Style x:Key="ScrollThumb" TargetType="Thumb">
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Thumb">
+                    <Border x:Name="Bar"
+                            Background="{StaticResource Border}"
+                            CornerRadius="2"
+                            Margin="3" />
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bar" Property="Background" Value="{StaticResource BorderStrong}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="ScrollBar">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Width"      Value="10" />
+        <Setter Property="MinWidth"   Value="10" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Track x:Name="PART_Track" IsDirectionReversed="True">
+                        <Track.Thumb>
+                            <Thumb Style="{StaticResource ScrollThumb}" />
+                        </Track.Thumb>
+                        <!-- The page buttons still have to exist for click-in-track paging to work,
+                             they just draw nothing. -->
+                        <Track.DecreaseRepeatButton>
+                            <RepeatButton Command="ScrollBar.PageUpCommand" Opacity="0" Focusable="False" />
+                        </Track.DecreaseRepeatButton>
+                        <Track.IncreaseRepeatButton>
+                            <RepeatButton Command="ScrollBar.PageDownCommand" Opacity="0" Focusable="False" />
+                        </Track.IncreaseRepeatButton>
+                    </Track>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width"     Value="Auto" />
+                <Setter Property="MinWidth"  Value="0" />
+                <Setter Property="Height"    Value="10" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollBar">
+                            <Track x:Name="PART_Track" Orientation="Horizontal" IsDirectionReversed="False">
+                                <Track.Thumb>
+                                    <Thumb Style="{StaticResource ScrollThumb}" />
+                                </Track.Thumb>
+                                <Track.DecreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageLeftCommand" Opacity="0" Focusable="False" />
+                                </Track.DecreaseRepeatButton>
+                                <Track.IncreaseRepeatButton>
+                                    <RepeatButton Command="ScrollBar.PageRightCommand" Opacity="0" Focusable="False" />
+                                </Track.IncreaseRepeatButton>
+                            </Track>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- ===== Splitter and tooltips ============================================================ -->
+    <Style TargetType="GridSplitter">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Cursor"     Value="SizeWE" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="GridSplitter">
+                    <Border Background="Transparent">
+                        <Rectangle x:Name="Grip"
+                                   Width="2" Height="34"
+                                   RadiusX="1" RadiusY="1"
+                                   Fill="{StaticResource Border}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Grip" Property="Fill"   Value="{StaticResource Accent}" />
+                            <Setter TargetName="Grip" Property="Height" Value="56" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="ToolTip">
+        <Setter Property="Foreground"     Value="{StaticResource Surface}" />
+        <Setter Property="FontFamily"     Value="{StaticResource UiFont}" />
+        <Setter Property="FontSize"       Value="{StaticResource FontSizeSmall}" />
+        <Setter Property="MaxWidth"       Value="320" />
+        <Setter Property="HasDropShadow"  Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ToolTip">
+                    <Border Background="#1D2939" CornerRadius="6" Padding="10,7">
+                        <ContentPresenter />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ===== Panel chrome =====================================================================
+         Every card on the window is this: white, hairline border, 8px radius. Defined once so the
+         panels cannot drift apart from each other.
+    -->
+    <Style x:Key="Card" TargetType="Border">
+        <Setter Property="Background"      Value="{StaticResource Surface}" />
+        <Setter Property="BorderBrush"     Value="{StaticResource Border}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius"    Value="8" />
+    </Style>
+
+</ResourceDictionary>
