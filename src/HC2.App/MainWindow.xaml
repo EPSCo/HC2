@@ -223,14 +223,14 @@
                             <DataGrid.Columns>
                                 <!-- Widths carry the header, not just the value: "Checksum" and "Protocol"
                                      are wider than anything in their columns. -->
-                                <DataGridTextColumn Header="Module"   Binding="{Binding Model}"     Width="1.2*" FontWeight="SemiBold" />
+                                <DataGridTextColumn Header="Module"   Binding="{Binding Model}"     Width="1.4*" FontWeight="SemiBold" />
                                 <DataGridTextColumn Header="Address"  Binding="{Binding Address}"   Width="0.8*" FontWeight="SemiBold" />
                                 <DataGridTextColumn Header="Baud"     Binding="{Binding BaudRate}"  Width="0.8*" />
-                                <DataGridTextColumn Header="COM"      Binding="{Binding Port}"      Width="0.8*" />
-                                <DataGridTextColumn Header="Checksum" Binding="{Binding Checksum}"  Width="1.0*" />
-                                <DataGridTextColumn Header="Format"   Binding="{Binding Format}"    Width="0.8*" />
+                                <DataGridTextColumn Header="COM"      Binding="{Binding Port}"      Width="0.7*" />
+                                <DataGridTextColumn Header="Checksum" Binding="{Binding Checksum}"  Width="0.9*" />
+                                <DataGridTextColumn Header="Format"   Binding="{Binding Format}"    Width="0.7*" />
                                 <DataGridTextColumn Header="Protocol" Binding="{Binding Protocol}"  Width="1.1*" />
-                                <DataGridTextColumn Header="Channels" Binding="{Binding Channels}"  Width="1.0*" />
+                                <DataGridTextColumn Header="Channels" Binding="{Binding Channels}"  Width="0.9*" />
                             </DataGrid.Columns>
                         </DataGrid>
 

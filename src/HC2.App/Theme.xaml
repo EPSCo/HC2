@@ -46,13 +46,13 @@
     <FontFamily x:Key="UiFont">Segoe UI Variable Text, Segoe UI</FontFamily>
     <FontFamily x:Key="NumericFont">Consolas, Cascadia Mono, Segoe UI</FontFamily>
 
-    <sys:Double x:Key="FontSizeBody">13</sys:Double>
+    <sys:Double x:Key="FontSizeBody">14</sys:Double>
     <sys:Double x:Key="FontSizeSmall">12</sys:Double>
-    <sys:Double x:Key="FontSizeTitle">14</sys:Double>
+    <sys:Double x:Key="FontSizeTitle">16</sys:Double>
 
     <!-- The ribbon: the tab names lead, the tick boxes under them follow a step down. -->
-    <sys:Double x:Key="FontSizeRibbonTab">17</sys:Double>
-    <sys:Double x:Key="FontSizeRibbon">15</sys:Double>
+    <sys:Double x:Key="FontSizeRibbonTab">15</sys:Double>
+    <sys:Double x:Key="FontSizeRibbon">14</sys:Double>
 
     <!--
         Deliberately sets no font size or family. An implicit TextBlock style also reaches the TextBlock
