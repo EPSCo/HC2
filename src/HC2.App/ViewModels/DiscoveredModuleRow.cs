@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Globalization;
 using System.Reflection;
 using HC2.Core;
 using HC2.Core.Dcon;
@@ -13,11 +14,28 @@ public sealed class DiscoveredModuleRow
 
     public DiscoveredModule Module { get; }
 
-    /// <summary>The port it answered on — a scan can cover several.</summary>
-    public string Port => Module.PortName;
+    /// <summary>
+    /// The port it answered on, as its number alone (<c>COM5</c> → <c>5</c>): the column is headed COM. A name
+    /// that is not <c>COM</c>-prefixed is shown whole rather than mangled.
+    /// </summary>
+    public string Port => Module.PortName.StartsWith("COM", StringComparison.OrdinalIgnoreCase)
+                          && Module.PortName.Length > 3
+        ? Module.PortName.Substring(3)
+        : Module.PortName;
 
-    /// <summary>The framing it answered under, e.g. <c>N,8,1</c>.</summary>
-    public string Format => Module.Format.Label;
+    /// <summary>
+    /// The framing it answered under, written <c>N, 8.1</c> — parity, then data and stop bits. Built from
+    /// <see cref="SerialFormat.Label"/> (<c>N,8,1</c>) so the table and the ribbon cannot disagree on the parts.
+    /// </summary>
+    public string Format
+    {
+        get
+        {
+            var parts = Module.Format.Label.Split(',');
+
+            return parts.Length == 3 ? $"{parts[0]}, {parts[1]}.{parts[2]}" : Module.Format.Label;
+        }
+    }
 
     /// <summary>
     /// Decimal, and only decimal. Hex is how the address travels on the wire, but every module in the
@@ -29,8 +47,11 @@ public sealed class DiscoveredModuleRow
         ? Describe(Module.Model.Value)
         : $"Unrecognized ({Module.Identifier})";
 
-    /// <summary>Bare number: the column is headed Baud, so the unit does not need repeating on every row.</summary>
-    public string BaudRate => Module.BaudRate.ToString();
+    /// <summary>
+    /// Bare number with a thousands separator (<c>4,800</c>): the column is headed Baud, so the unit does not
+    /// need repeating on every row. Invariant culture, so the separator does not change with the PC's locale.
+    /// </summary>
+    public string BaudRate => Module.BaudRate.ToString("N0", CultureInfo.InvariantCulture);
 
     public string Checksum => Module.Checksum ? "Enabled" : "Disabled";
 

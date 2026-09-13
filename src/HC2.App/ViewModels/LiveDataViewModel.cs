@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using HC2.App.Converters;
 using HC2.App.Mvvm;
 using HC2.Core.Dcon;
 using HC2.Core.Modules;
@@ -51,9 +52,15 @@ public sealed class LiveDataViewModel : ViewModelBase
         _settings = settings;
         _start    = new RelayCommand(StartOrStop, () => IsRunning || CanStart());
 
-        // Start becomes possible the moment a scan produces something to read.
+        // Start becomes possible the moment a scan produces something to read — but not while that scan is still
+        // running: it holds the ports open, so a live read could not open them.
         _scan.Results.CollectionChanged += OnScanResultsChanged;
         _settings.SelectionChanged      += (_, _) => _start.RaiseCanExecuteChanged();
+        _scan.PropertyChanged           += (_, e) =>
+        {
+            if (e.PropertyName == nameof(ModuleScanViewModel.IsScanning))
+                _start.RaiseCanExecuteChanged();
+        };
     }
 
     public ObservableCollection<ChannelReadingRow> Channels { get; } = new();
@@ -104,7 +111,7 @@ public sealed class LiveDataViewModel : ViewModelBase
     }
 
     private bool CanStart() =>
-        !IsRunning && _settings.IsSupportedProtocol && _scan.Results.Any(row => row.IsRecognized);
+        !IsRunning && !_scan.IsScanning && _settings.IsSupportedProtocol && _scan.Results.Any(row => row.IsRecognized);
 
     /// <remarks>
     /// Synchronous for the same reason as the scan button: an <see cref="AsyncRelayCommand"/> blocks
@@ -125,6 +132,12 @@ public sealed class LiveDataViewModel : ViewModelBase
         if (discovered.Count == 0)
         {
             Status = "No recognized modules to read. Run a scan first.";
+            return;
+        }
+
+        if (_scan.IsScanning)
+        {
+            Status = "A scan is using the ports. Wait for it to finish, then start.";
             return;
         }
 
@@ -248,7 +261,10 @@ public sealed class LiveDataViewModel : ViewModelBase
 
             for (var index = 0; index < entries.Count; index++)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                // Returning rather than throwing: an exception escaping this Task.Run delegate breaks the debugger
+                // as user-unhandled, even though RunAsync catches it.
+                if (cancellationToken.IsCancellationRequested)
+                    return;
 
                 var entry = entries[index];
 
@@ -277,8 +293,6 @@ public sealed class LiveDataViewModel : ViewModelBase
             if (cancellationToken.WaitHandle.WaitOne(IntervalMs))
                 break;
         }
-
-        cancellationToken.ThrowIfCancellationRequested();
     }
 
     private void Apply(PollResult result)
@@ -323,11 +337,12 @@ public sealed class LiveDataViewModel : ViewModelBase
 
         foreach (var entry in entries)
         {
-            // The port is part of the label only when more than one is in play: two ports can carry the same
-            // model at the same address, and the label is what pairs a reading with its row.
-            var label = showPort
-                ? $"{entry.Settings.PortName} · {entry.Module.Model} @ {entry.Module.Address}"
-                : $"{entry.Module.Model} @ {entry.Module.Address}";
+            // Written the way the module is labelled in the field: decimal address first, then the model name
+            // as printed on the case (e.g. "[01] ADAM-4017P"). The port is part of the label only when more than
+            // one is in play: two ports can carry the same model at the same address, and the label is what
+            // pairs a reading with its row.
+            var name  = $"[{entry.Module.Address:00}] {EnumDescriptionConverter.Describe(entry.Module.Model)}";
+            var label = showPort ? $"{entry.Settings.PortName} · {name}" : name;
 
             _labels.Add(label);
 

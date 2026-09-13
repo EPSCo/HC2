@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using HC2.App.Converters;
 using HC2.App.Mvvm;
 using HC2.Core;
 using HC2.Core.Dcon;
@@ -20,8 +21,6 @@ namespace HC2.App.ViewModels;
 /// </remarks>
 public sealed class PortSettingsViewModel : ViewModelBase
 {
-    private BusProtocol _protocol = BusProtocol.DconAscii;
-
     public PortSettingsViewModel()
     {
         foreach (var (code, bitsPerSecond) in BaudRateCodes.All)
@@ -39,6 +38,9 @@ public sealed class PortSettingsViewModel : ViewModelBase
 
         foreach (var format in SerialFormat.Standard)
             Add(Formats, new CheckableOption<SerialFormat>(format, format.Label, format.Equals(SerialFormat.Default)));
+
+        Add(Protocols, new CheckableOption<BusProtocol>(BusProtocol.DconAscii, EnumDescriptionConverter.Describe(BusProtocol.DconAscii), isSelected: true));
+        Add(Protocols, new CheckableOption<BusProtocol>(BusProtocol.ModbusRtu, EnumDescriptionConverter.Describe(BusProtocol.ModbusRtu)));
     }
 
     public ObservableCollection<CheckableOption<string>>       ComPorts      { get; } = new();
@@ -46,30 +48,26 @@ public sealed class PortSettingsViewModel : ViewModelBase
     public ObservableCollection<CheckableOption<bool>>         ChecksumModes { get; } = new();
     public ObservableCollection<CheckableOption<SerialFormat>> Formats       { get; } = new();
 
-    public IReadOnlyList<BusProtocol> ProtocolOptions { get; } =
-        new[] { BusProtocol.DconAscii, BusProtocol.ModbusRtu };
+    /// <summary>A tick per protocol, like every other ribbon tab.</summary>
+    public ObservableCollection<CheckableOption<BusProtocol>> Protocols { get; } = new();
 
-    public BusProtocol Protocol
-    {
-        get => _protocol;
-        set
-        {
-            if (!SetProperty(ref _protocol, value))
-                return;
+    /// <summary>Nothing ticked means DCON, the same fallback the other tabs apply.</summary>
+    public IReadOnlyList<BusProtocol> SelectedProtocols => Fallback(Selected(Protocols), new[] { BusProtocol.DconAscii });
 
-            RaisePropertyChanged(nameof(IsSupportedProtocol));
-            RaisePropertyChanged(nameof(ProtocolWarning));
-            SelectionChanged?.Invoke(this, EventArgs.Empty);
-        }
-    }
+    /// <summary>
+    /// False when no protocol HC2 can actually speak is ticked, which gates every operation. Modbus ticked
+    /// alongside DCON does not block: the sweep simply covers DCON only.
+    /// </summary>
+    public bool IsSupportedProtocol => SelectedProtocols.Contains(BusProtocol.DconAscii);
 
-    /// <summary>False for a protocol HC2 cannot actually speak, which gates every operation.</summary>
-    public bool IsSupportedProtocol => Protocol == BusProtocol.DconAscii;
+    public bool HasProtocolWarning => SelectedProtocols.Contains(BusProtocol.ModbusRtu);
 
-    public string ProtocolWarning => IsSupportedProtocol
+    public string ProtocolWarning => !HasProtocolWarning
         ? string.Empty
-        : "Modbus RTU is not implemented yet — scanning and reading are disabled while it is selected. " +
-          "DCON's identification command has no Modbus equivalent, so a Modbus bus cannot be discovered here.";
+        : IsSupportedProtocol
+            ? "Modbus RTU is not implemented yet — scanning and reading cover DCON only."
+            : "Modbus RTU is not implemented yet — scanning and reading are disabled while only it is ticked. " +
+              "DCON's identification command has no Modbus equivalent, so a Modbus bus cannot be discovered here.";
 
     /// <summary>Raised whenever any tick or the protocol changes, so commands can re-evaluate.</summary>
     public event EventHandler? SelectionChanged;
@@ -126,6 +124,9 @@ public sealed class PortSettingsViewModel : ViewModelBase
     {
         RaisePropertyChanged(nameof(HasPortSelected));
         RaisePropertyChanged(nameof(PrimaryPort));
+        RaisePropertyChanged(nameof(IsSupportedProtocol));
+        RaisePropertyChanged(nameof(HasProtocolWarning));
+        RaisePropertyChanged(nameof(ProtocolWarning));
         SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
 

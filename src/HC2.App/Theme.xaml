@@ -477,11 +477,25 @@
                             BorderBrush="{StaticResource Border}"
                             BorderThickness="0,0,0,1"
                             Padding="{TemplateBinding Padding}">
-                        <ContentPresenter VerticalAlignment="Center" />
+                        <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="Center" />
                     </Border>
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+    </Style>
+
+    <!-- Short values under a wide star column read as floating off to the left; centring header and value
+         together keeps each column visually one unit. Apply both per column — DataGridTextColumn has no
+         grid-wide default for either. -->
+    <Style x:Key="CenteredColumnHeader" TargetType="DataGridColumnHeader"
+           BasedOn="{StaticResource {x:Type DataGridColumnHeader}}">
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style x:Key="CenteredCellText" TargetType="TextBlock">
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="TextAlignment"       Value="Center" />
     </Style>
 
     <Style TargetType="DataGridRow">

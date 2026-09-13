@@ -41,7 +41,7 @@
     <Grid Margin="20,18,20,14">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
-            <RowDefinition Height="Auto" />
+            <RowDefinition Height="115" />
             <RowDefinition Height="*" MinHeight="200" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
@@ -102,25 +102,9 @@
                     <TabItem Header="Protocol">
                         <ScrollViewer Style="{StaticResource RibbonScroll}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <ComboBox ItemsSource="{Binding ProtocolOptions}"
-                                          SelectedItem="{Binding Protocol}"
-                                          Width="130"
-                                          Margin="0,0,14,0">
-                                    <ComboBox.ItemTemplate>
-                                        <DataTemplate>
-                                            <TextBlock Text="{Binding Converter={StaticResource EnumDescription}}" />
-                                        </DataTemplate>
-                                    </ComboBox.ItemTemplate>
-
-                                    <!-- Without this the item reports its enum member name to
-                                         accessibility tools while showing the readable one. -->
-                                    <ComboBox.ItemContainerStyle>
-                                        <Style TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
-                                            <Setter Property="AutomationProperties.Name"
-                                                    Value="{Binding Converter={StaticResource EnumDescription}}" />
-                                        </Style>
-                                    </ComboBox.ItemContainerStyle>
-                                </ComboBox>
+                                <ItemsControl ItemsSource="{Binding Protocols}"
+                                              ItemTemplate="{StaticResource OptionTemplate}"
+                                              ItemsPanel="{StaticResource OptionPanel}" />
 
                                 <!-- Visibility comes only from the style: a local value beats a style
                                      trigger, and the warning would then never hide. -->
@@ -129,7 +113,7 @@
                                         <Style TargetType="Border">
                                             <Setter Property="Visibility" Value="Collapsed" />
                                             <Style.Triggers>
-                                                <DataTrigger Binding="{Binding IsSupportedProtocol}" Value="False">
+                                                <DataTrigger Binding="{Binding HasProtocolWarning}" Value="True">
                                                     <Setter Property="Visibility" Value="Visible" />
                                                 </DataTrigger>
                                             </Style.Triggers>
@@ -158,7 +142,7 @@
                             Margin="18,6,0,0"
                             DataContext="{Binding Scan}"
                             IsEnabled="{Binding IsScanning, Converter={StaticResource Not}}">
-                    <TextBlock Text="SCAN RANGE" Style="{StaticResource FieldLabel}" Margin="0,0,0,9" />
+                    <TextBlock Text="Scan Range" Style="{StaticResource FieldLabel}" Margin="0,0,0,9" />
 
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <!-- The visible labels are short, but on their own "Start" and "End" name nothing
@@ -166,21 +150,20 @@
                         <TextBlock Text="Start" Style="{StaticResource Caption}" Margin="0,0,7,0" />
                         <TextBox Text="{Binding FirstAddress, UpdateSourceTrigger=PropertyChanged}"
                                  AutomationProperties.Name="First address to scan"
-                                 Style="{StaticResource NumericInput}" Margin="0,0,14,0" />
+                                 Style="{StaticResource NumericInput}"  Width="50" Height="25" Padding="0" Margin="0,0,14,0" />
 
                         <TextBlock Text="End" Style="{StaticResource Caption}" Margin="0,0,7,0" />
                         <TextBox Text="{Binding LastAddress, UpdateSourceTrigger=PropertyChanged}"
                                  AutomationProperties.Name="Last address to scan"
-                                 Style="{StaticResource NumericInput}" Margin="0,0,16,0" />
+                                 Style="{StaticResource NumericInput}" Width="50" Height="25" Padding="0" Margin="0,0,16,0" />
 
                         <Border BorderBrush="{StaticResource Border}" BorderThickness="1,0,0,0"
                                 Margin="0,0,16,0" Height="22" />
 
-                        <TextBlock Text="Timeout" Style="{StaticResource Caption}" Margin="0,0,7,0" />
+                        <TextBlock Text="Timeout (ms)" Style="{StaticResource Caption}" Margin="0,0,7,0" />
                         <TextBox Text="{Binding ProbeTimeoutMs, UpdateSourceTrigger=PropertyChanged}"
                                  AutomationProperties.Name="Probe timeout in milliseconds"
-                                 Style="{StaticResource NumericInput}" />
-                        <TextBlock Text="ms" Style="{StaticResource Caption}" Margin="7,0,0,0" />
+                                 Style="{StaticResource NumericInput}" Width="50" Height="25" Padding="0" />
                     </StackPanel>
                 </StackPanel>
             </Grid>
@@ -222,15 +205,23 @@
                                   SelectedItem="{Binding SelectedResult}">
                             <DataGrid.Columns>
                                 <!-- Widths carry the header, not just the value: "Checksum" and "Protocol"
-                                     are wider than anything in their columns. -->
+                                     are wider than anything in their columns. Module stays left-aligned; every
+                                     other column is centred. -->
                                 <DataGridTextColumn Header="Module"   Binding="{Binding Model}"     Width="1.4*" FontWeight="SemiBold" />
-                                <DataGridTextColumn Header="Address"  Binding="{Binding Address}"   Width="0.8*" FontWeight="SemiBold" />
-                                <DataGridTextColumn Header="Baud"     Binding="{Binding BaudRate}"  Width="0.8*" />
-                                <DataGridTextColumn Header="COM"      Binding="{Binding Port}"      Width="0.7*" />
-                                <DataGridTextColumn Header="Checksum" Binding="{Binding Checksum}"  Width="0.9*" />
-                                <DataGridTextColumn Header="Format"   Binding="{Binding Format}"    Width="0.7*" />
-                                <DataGridTextColumn Header="Protocol" Binding="{Binding Protocol}"  Width="1.1*" />
-                                <DataGridTextColumn Header="Channels" Binding="{Binding Channels}"  Width="0.9*" />
+                                <DataGridTextColumn Header="Address"  Binding="{Binding Address}"   Width="0.8*" FontWeight="SemiBold"
+                                                    HeaderStyle="{StaticResource CenteredColumnHeader}" ElementStyle="{StaticResource CenteredCellText}" />
+                                <DataGridTextColumn Header="Baud"     Binding="{Binding BaudRate}"  Width="0.8*"
+                                                    HeaderStyle="{StaticResource CenteredColumnHeader}" ElementStyle="{StaticResource CenteredCellText}" />
+                                <DataGridTextColumn Header="COM"      Binding="{Binding Port}"      Width="0.7*"
+                                                    HeaderStyle="{StaticResource CenteredColumnHeader}" ElementStyle="{StaticResource CenteredCellText}" />
+                                <DataGridTextColumn Header="Checksum" Binding="{Binding Checksum}"  Width="0.9*"
+                                                    HeaderStyle="{StaticResource CenteredColumnHeader}" ElementStyle="{StaticResource CenteredCellText}" />
+                                <DataGridTextColumn Header="Format"   Binding="{Binding Format}"    Width="0.7*"
+                                                    HeaderStyle="{StaticResource CenteredColumnHeader}" ElementStyle="{StaticResource CenteredCellText}" />
+                                <DataGridTextColumn Header="Protocol" Binding="{Binding Protocol}"  Width="1.1*"
+                                                    HeaderStyle="{StaticResource CenteredColumnHeader}" ElementStyle="{StaticResource CenteredCellText}" />
+                                <DataGridTextColumn Header="Channels" Binding="{Binding Channels}"  Width="0.9*"
+                                                    HeaderStyle="{StaticResource CenteredColumnHeader}" ElementStyle="{StaticResource CenteredCellText}" />
                             </DataGrid.Columns>
                         </DataGrid>
 
@@ -320,11 +311,11 @@
                         </Grid.ColumnDefinitions>
 
                         <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                            <TextBlock Text="INTERVAL" Style="{StaticResource FieldLabel}" />
+                            <TextBlock Text="Interval" Style="{StaticResource FieldLabel}" />
                             <TextBox Text="{Binding IntervalMs, UpdateSourceTrigger=PropertyChanged}"
                                      AutomationProperties.Name="Polling interval in milliseconds"
                                      Style="{StaticResource NumericInput}"
-                                     IsEnabled="{Binding IsRunning, Converter={StaticResource Not}}" />
+                                     IsEnabled="{Binding IsRunning, Converter={StaticResource Not}}" Width="50" Height="25" Padding="0" />
                             <TextBlock Text="ms" Style="{StaticResource Caption}" Margin="7,0,0,0" />
                         </StackPanel>
 
@@ -354,15 +345,15 @@
                                 <!-- The address is already part of the module label, so it does not get a
                                      column of its own in a panel this narrow. -->
                                 <DataGridTextColumn Header="Module" Binding="{Binding ModuleLabel}" Width="*" MinWidth="112" />
-                                <DataGridTextColumn Header="Ch"     Binding="{Binding Channel}"     Width="44" />
+                                <DataGridTextColumn Header="Channel" Binding="{Binding ChannelLabel}" Width="70"
+                                                    HeaderStyle="{StaticResource CenteredColumnHeader}" ElementStyle="{StaticResource CenteredCellText}" />
 
-                                <DataGridTextColumn Header="Value" Binding="{Binding Display}" Width="96">
+                                <DataGridTextColumn Header="Value" Binding="{Binding Display}" Width="96"
+                                                    HeaderStyle="{StaticResource CenteredColumnHeader}">
                                     <DataGridTextColumn.ElementStyle>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="FontFamily"          Value="{StaticResource NumericFont}" />
-                                            <Setter Property="FontWeight"          Value="SemiBold" />
-                                            <Setter Property="HorizontalAlignment" Value="Right" />
-                                            <Setter Property="Margin"              Value="0,0,10,0" />
+                                        <Style TargetType="TextBlock" BasedOn="{StaticResource CenteredCellText}">
+                                            <Setter Property="FontFamily" Value="{StaticResource NumericFont}" />
+                                            <Setter Property="FontWeight" Value="SemiBold" />
                                         </Style>
                                     </DataGridTextColumn.ElementStyle>
                                 </DataGridTextColumn>

@@ -26,6 +26,14 @@ public sealed class MainWindowViewModel : ViewModelBase
         _scanner = scanner;
         Scan     = new ModuleScanViewModel(PortSettings);
         Live     = new LiveDataViewModel(Scan, PortSettings);
+
+        // Scan and live data each hold the ports open while they run, so each blocks the other. Live watches
+        // the scan itself; the scan is built first and cannot see Live, so the shell passes that state across.
+        Live.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(LiveDataViewModel.IsRunning))
+                Scan.IsLiveReading = Live.IsRunning;
+        };
     }
 
     /// <summary>Ports, baud rates, checksum modes, framings and protocol — the search space for a scan.</summary>

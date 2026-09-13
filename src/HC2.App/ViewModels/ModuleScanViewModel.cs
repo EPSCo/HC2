@@ -24,6 +24,7 @@ public sealed class ModuleScanViewModel : ViewModelBase
     private int    _lastAddress  = 255;
     private int    _probeTimeoutMs = 200;
     private bool   _isScanning;
+    private bool   _isLiveReading;
     private double _progress;
     private string _status = "Tick a port, then scan for modules.";
 
@@ -85,6 +86,20 @@ public sealed class ModuleScanViewModel : ViewModelBase
         }
     }
 
+    /// <summary>
+    /// Set by the shell while live data is polling. That loop holds the ports open, so a scan started then
+    /// could not open them; the scan button stays disabled until it stops.
+    /// </summary>
+    public bool IsLiveReading
+    {
+        get => _isLiveReading;
+        set
+        {
+            if (SetProperty(ref _isLiveReading, value))
+                _scan.RaiseCanExecuteChanged();
+        }
+    }
+
     /// <summary>Completed fraction, 0 to 1, across every port in the sweep.</summary>
     public double Progress
     {
@@ -98,7 +113,7 @@ public sealed class ModuleScanViewModel : ViewModelBase
         private set => SetProperty(ref _status, value);
     }
 
-    private bool CanScan() => _settings.HasPortSelected && _settings.IsSupportedProtocol;
+    private bool CanScan() => !IsLiveReading && _settings.HasPortSelected && _settings.IsSupportedProtocol;
 
     /// <remarks>
     /// Not an <see cref="AsyncRelayCommand"/>: that one refuses to re-enter while its task runs, which is
@@ -115,6 +130,12 @@ public sealed class ModuleScanViewModel : ViewModelBase
 
     private async Task ScanAsync()
     {
+        if (IsLiveReading)
+        {
+            Status = "Live data is using the ports. Stop it, then scan.";
+            return;
+        }
+
         if (!_settings.IsSupportedProtocol)
         {
             Status = _settings.ProtocolWarning;
@@ -193,6 +214,12 @@ public sealed class ModuleScanViewModel : ViewModelBase
 
                 foreach (var module in found)
                     Results.Add(new DiscoveredModuleRow(module));
+            }
+
+            if (_cancellation.IsCancellationRequested)
+            {
+                Status = $"Scan cancelled. {Results.Count} module(s) found before stopping.";
+                return;
             }
 
             Progress = 1;

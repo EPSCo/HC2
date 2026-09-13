@@ -10,12 +10,14 @@ namespace HC2.App.Converters;
 public sealed class EnumDescriptionConverter : IValueConverter
 {
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+        => value is Enum e ? Describe(e) : value?.ToString() ?? string.Empty;
+
+    /// <summary>The same lookup for code building labels outside a binding, e.g. <c>ADAM-4017P</c>.</summary>
+    public static string Describe(Enum value)
     {
-        if (value is not Enum) return value?.ToString() ?? string.Empty;
+        var field = value.GetType().GetField(value.ToString(), BindingFlags.Public | BindingFlags.Static);
 
-        var field = value.GetType().GetField(value.ToString()!, BindingFlags.Public | BindingFlags.Static);
-
-        return field?.GetCustomAttribute<DescriptionAttribute>()?.Description ?? value.ToString()!;
+        return field?.GetCustomAttribute<DescriptionAttribute>()?.Description ?? value.ToString();
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)

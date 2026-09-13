@@ -137,6 +137,10 @@ public sealed class ModuleFinder
             throw new ArgumentException("At least one transport is needed.", nameof(transports));
     }
 
+    /// <summary>
+    /// Runs the sweep on a background thread. Cancelling ends it early and returns the modules found up to that
+    /// point; check the token afterwards to tell a cancelled scan from a complete one.
+    /// </summary>
     public Task<IReadOnlyList<DiscoveredModule>> ScanAsync(ModuleScanOptions              options,
                                                             IProgress<ModuleScanProgress>? progress          = null,
                                                             CancellationToken              cancellationToken = default)
@@ -176,7 +180,10 @@ public sealed class ModuleFinder
                                  ? formats
                                  : new[] { new SerialFormat { Parity = original.Parity, DataBits = original.DataBits, StopBits = original.StopBits } })
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
+                        // Cancellation returns what was found so far rather than throwing: an exception escaping a
+                        // Task.Run delegate breaks the debugger as user-unhandled even though the caller catches it.
+                        if (cancellationToken.IsCancellationRequested)
+                            return found;
 
                         completed++;
 

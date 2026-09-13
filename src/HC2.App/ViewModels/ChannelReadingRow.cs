@@ -25,6 +25,9 @@ public sealed class ChannelReadingRow : ViewModelBase
 
     public int Channel { get; }
 
+    /// <summary>One-based and two digits (<c>01</c> for channel 0), so the column lines up past channel 9.</summary>
+    public string ChannelLabel => (Channel + 1).ToString("00");
+
     public double Value
     {
         get => _value;
