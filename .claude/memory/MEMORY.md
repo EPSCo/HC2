@@ -1,0 +1,3 @@
+- [HC2 is a clean HardwareController rewrite](hc2-is-hardwarecontroller-rewrite.md) — why the Core/App split and net48 exist, and what HC2 deliberately does not depend on.
+- [CH340 refuses SetCommState on this bench](ch340-rejects-setcommstate.md) — why System.IO.Ports cannot open COM5 while the Advantech SDK can, plus the known module addresses.
+- [Match HardwareController's control style](match-hardwarecontroller-control-style.md) — HC2's checkboxes and buttons follow the old tool's AppStyles.xaml, not a new look.
